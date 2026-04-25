@@ -48,6 +48,15 @@ class _TabItemState extends State<TabItem> {
     super.dispose();
   }
 
+  @override
+  void didUpdateWidget(covariant TabItem oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.displayName != widget.displayName && _editing) {
+      // 외부에서 이름이 바뀐 경우 — 편집 모드를 안전하게 종료
+      setState(() => _editing = false);
+    }
+  }
+
   void _startEdit() {
     setState(() {
       _editing = true;
@@ -56,14 +65,18 @@ class _TabItemState extends State<TabItem> {
           TextSelection(baseOffset: 0, extentOffset: _ctrl.text.length);
     });
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
       _focus.requestFocus();
     });
   }
 
+  /// Enter / focus-out / tap-outside 진입점.
+  /// 콜백이 throw해도 편집 모드는 항상 종료된다 (state는 콜백 호출 전에 갱신).
   void _commit() {
+    if (!_editing) return;
     final raw = _ctrl.text.trim();
-    if (raw.isNotEmpty) widget.onRenameSubmit(raw);
     setState(() => _editing = false);
+    if (raw.isNotEmpty) widget.onRenameSubmit(raw);
   }
 
   void _cancel() {
@@ -111,22 +124,30 @@ class _TabItemState extends State<TabItem> {
               child: _editing
                   ? Focus(
                       onKeyEvent: _onKey,
-                      child: TextField(
-                        controller: _ctrl,
-                        focusNode: _focus,
-                        autofocus: true,
-                        textInputAction: TextInputAction.done,
-                        decoration: const InputDecoration(
-                          isDense: true,
-                          contentPadding: EdgeInsets.zero,
-                          border: InputBorder.none,
+                      child: Container(
+                        decoration: BoxDecoration(
+                          border:
+                              Border.all(color: fg.withOpacity(0.3), width: 1),
+                          borderRadius: BorderRadius.circular(3),
                         ),
-                        style: TextStyle(color: fg, fontSize: 13),
-                        inputFormatters: [
-                          FilteringTextInputFormatter.deny(_forbiddenRegex),
-                        ],
-                        onSubmitted: (_) => _commit(),
-                        onTapOutside: (_) => _commit(),
+                        padding: const EdgeInsets.symmetric(horizontal: 4),
+                        child: TextField(
+                          controller: _ctrl,
+                          focusNode: _focus,
+                          autofocus: true,
+                          textInputAction: TextInputAction.done,
+                          decoration: const InputDecoration(
+                            isDense: true,
+                            contentPadding: EdgeInsets.zero,
+                            border: InputBorder.none,
+                          ),
+                          style: TextStyle(color: fg, fontSize: 13),
+                          inputFormatters: [
+                            FilteringTextInputFormatter.deny(_forbiddenRegex),
+                          ],
+                          onSubmitted: (_) => _commit(),
+                          onTapOutside: (_) => _commit(),
+                        ),
                       ),
                     )
                   : GestureDetector(
