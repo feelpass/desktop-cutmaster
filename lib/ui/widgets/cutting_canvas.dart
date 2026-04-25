@@ -5,8 +5,12 @@ import '../../domain/models/stock_sheet.dart';
 import '../theme/app_colors.dart';
 import '../utils/part_color.dart';
 
-/// 시트 한 장의 재단 도면을 그리는 CustomPainter.
-/// 시트 비율 유지하며 화면에 맞춰 scale.
+/// 시트 한 장의 재단 도면.
+///
+/// `maxSheetLength`가 주어지면 시트들 사이의 상대 크기를 유지.
+/// 가장 긴 시트는 화면 너비를 가득 채우고, 짧은 시트는 비율에 맞춰 좁아짐.
+/// `maxSheetLength`가 null이면 자기 폭을 가득 채움 (단일 시트일 때 유용).
+///
 /// 자재 색상을 시트 배경 tint로, 부품 색상은 자기 색으로 그려서 시각 층 구분.
 class CuttingCanvas extends StatelessWidget {
   const CuttingCanvas({
@@ -14,23 +18,42 @@ class CuttingCanvas extends StatelessWidget {
     required this.sheet,
     required this.stock,
     required this.showLabels,
+    this.maxSheetLength,
   });
 
   final SheetLayout sheet;
   final StockSheet? stock;
   final bool showLabels;
+  final double? maxSheetLength;
 
   @override
   Widget build(BuildContext context) {
-    return AspectRatio(
-      aspectRatio: sheet.sheetLength / sheet.sheetWidth,
-      child: CustomPaint(
-        painter: _CuttingPainter(
-          sheet: sheet,
-          stock: stock,
-          showLabels: showLabels,
-        ),
-      ),
+    return LayoutBuilder(
+      builder: (ctx, constraints) {
+        // available width = 부모로부터 받은 max width
+        final available = constraints.maxWidth;
+        final widthFraction = (maxSheetLength == null || maxSheetLength == 0)
+            ? 1.0
+            : (sheet.sheetLength / maxSheetLength!).clamp(0.0, 1.0);
+        final canvasWidth = available * widthFraction;
+        final canvasHeight =
+            canvasWidth * (sheet.sheetWidth / sheet.sheetLength);
+
+        return Align(
+          alignment: Alignment.centerLeft,
+          child: SizedBox(
+            width: canvasWidth,
+            height: canvasHeight,
+            child: CustomPaint(
+              painter: _CuttingPainter(
+                sheet: sheet,
+                stock: stock,
+                showLabels: showLabels,
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 }

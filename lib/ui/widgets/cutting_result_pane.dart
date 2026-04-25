@@ -66,38 +66,45 @@ class CuttingResultPane extends ConsumerWidget {
           const SizedBox(height: 12),
           const Divider(height: 1, color: AppColors.border),
           const SizedBox(height: 12),
-          // 시트별 도면 stack
+          // 시트별 도면 stack — 가장 긴 시트 기준으로 상대 비율 유지
           Expanded(
-            child: ListView.separated(
-              itemCount: plan.sheets.length,
-              separatorBuilder: (_, _) => const SizedBox(height: 24),
-              itemBuilder: (_, i) {
-                final s = plan.sheets[i];
-                final stock = ref
-                    .read(currentProjectProvider)
-                    .stocks
-                    .where((st) => st.id == s.stockSheetId)
-                    .toList();
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '시트 ${i + 1}  •  ${s.sheetLength.toStringAsFixed(0)} × ${s.sheetWidth.toStringAsFixed(0)} mm  •  ${s.usedPercent.toStringAsFixed(1)}%${stock.isNotEmpty && stock.first.label.isNotEmpty ? "  •  ${stock.first.label}" : ""}',
-                      style: AppTextStyles.body.copyWith(
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.textSecondary,
+            child: Builder(builder: (_) {
+              final maxLen = plan.sheets.fold<double>(
+                0,
+                (acc, s) => s.sheetLength > acc ? s.sheetLength : acc,
+              );
+              return ListView.separated(
+                itemCount: plan.sheets.length,
+                separatorBuilder: (_, _) => const SizedBox(height: 24),
+                itemBuilder: (_, i) {
+                  final s = plan.sheets[i];
+                  final stock = ref
+                      .read(currentProjectProvider)
+                      .stocks
+                      .where((st) => st.id == s.stockSheetId)
+                      .toList();
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '시트 ${i + 1}  •  ${s.sheetLength.toStringAsFixed(0)} × ${s.sheetWidth.toStringAsFixed(0)} mm  •  ${s.usedPercent.toStringAsFixed(1)}%${stock.isNotEmpty && stock.first.label.isNotEmpty ? "  •  ${stock.first.label}" : ""}',
+                        style: AppTextStyles.body.copyWith(
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.textSecondary,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 8),
-                    CuttingCanvas(
-                      sheet: s,
-                      stock: stock.isNotEmpty ? stock.first : null,
-                      showLabels: showLabels,
-                    ),
-                  ],
-                );
-              },
-            ),
+                      const SizedBox(height: 8),
+                      CuttingCanvas(
+                        sheet: s,
+                        stock: stock.isNotEmpty ? stock.first : null,
+                        showLabels: showLabels,
+                        maxSheetLength: maxLen,
+                      ),
+                    ],
+                  );
+                },
+              );
+            }),
           ),
         ],
       ),
