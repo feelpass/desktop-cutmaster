@@ -54,4 +54,108 @@ void main() {
     final s = notifier.state.stocks.firstWhere((x) => x.id == 'sp_test');
     expect(s.colorPresetId, isNull);
   });
+
+  test('part preset CRUD', () async {
+    final notifier = PresetsNotifier(
+        PresetRepository(filePath: p.join(tmp.path, 'presets.json')));
+    await notifier.load();
+
+    const part = DimensionPreset(
+      id: 'pp_x', length: 600, width: 300, label: '선반',
+      colorPresetId: null, grainDirection: GrainDirection.none,
+    );
+    await notifier.addPartPreset(part);
+    expect(notifier.state.parts.length, 1);
+
+    await notifier.updatePartPreset(part.copyWith(label: '선반 600'));
+    expect(notifier.state.parts.first.label, '선반 600');
+
+    await notifier.removePartPreset('pp_x');
+    expect(notifier.state.parts, isEmpty);
+  });
+
+  test('removeColor cascades on part presets too', () async {
+    final notifier = PresetsNotifier(
+        PresetRepository(filePath: p.join(tmp.path, 'presets.json')));
+    await notifier.load();
+
+    await notifier.addColor(
+        const ColorPreset(id: 'cp_z', name: 'Z', argb: 0xFF333333));
+    await notifier.addPartPreset(const DimensionPreset(
+      id: 'pp_z', length: 600, width: 300, label: '',
+      colorPresetId: 'cp_z', grainDirection: GrainDirection.lengthwise,
+    ));
+    await notifier.removeColor('cp_z');
+
+    final part = notifier.state.parts.firstWhere((p) => p.id == 'pp_z');
+    expect(part.colorPresetId, isNull);
+    // sibling fields preserved:
+    expect(part.length, 600);
+    expect(part.width, 300);
+    expect(part.grainDirection, GrainDirection.lengthwise);
+  });
+
+  test('listeners fire on every mutation', () async {
+    final notifier = PresetsNotifier(
+        PresetRepository(filePath: p.join(tmp.path, 'presets.json')));
+    await notifier.load();
+
+    var count = 0;
+    notifier.addListener(() => count++);
+
+    await notifier.addColor(
+        const ColorPreset(id: 'cp_a', name: 'A', argb: 0xFFAAAAAA));
+    await notifier.updateColor(
+        const ColorPreset(id: 'cp_a', name: 'A2', argb: 0xFFAAAAAA));
+    await notifier.removeColor('cp_a');
+
+    expect(count, greaterThanOrEqualTo(3));
+  });
+
+  test('colorById hit / miss / null', () async {
+    final notifier = PresetsNotifier(
+        PresetRepository(filePath: p.join(tmp.path, 'presets.json')));
+    await notifier.load();
+
+    // hit (seed has 'cp_red')
+    expect(notifier.colorById('cp_red')?.name, '빨강');
+    // miss
+    expect(notifier.colorById('cp_does_not_exist'), isNull);
+    // null input
+    expect(notifier.colorById(null), isNull);
+  });
+
+  test('stock preset update preserves other items', () async {
+    final notifier = PresetsNotifier(
+        PresetRepository(filePath: p.join(tmp.path, 'presets.json')));
+    await notifier.load();
+
+    final initialIds = notifier.state.stocks.map((s) => s.id).toList();
+
+    await notifier.addStockPreset(const DimensionPreset(
+      id: 'sp_new', length: 1000, width: 500, label: 'New',
+      colorPresetId: null, grainDirection: GrainDirection.none,
+    ));
+    await notifier.updateStockPreset(const DimensionPreset(
+      id: 'sp_new', length: 1500, width: 750, label: 'Updated',
+      colorPresetId: null, grainDirection: GrainDirection.none,
+    ));
+
+    // initial seeds still present
+    for (final id in initialIds) {
+      expect(notifier.state.stocks.any((s) => s.id == id), true);
+    }
+    final updated = notifier.state.stocks.firstWhere((s) => s.id == 'sp_new');
+    expect(updated.length, 1500);
+    expect(updated.label, 'Updated');
+  });
+
+  test('lastSaveError starts null and stays null on success', () async {
+    final notifier = PresetsNotifier(
+        PresetRepository(filePath: p.join(tmp.path, 'presets.json')));
+    await notifier.load();
+    await notifier.addColor(
+        const ColorPreset(id: 'cp_ok', name: 'OK', argb: 0xFFCCCCCC));
+    expect(notifier.lastSaveError, isNull);
+  });
 }

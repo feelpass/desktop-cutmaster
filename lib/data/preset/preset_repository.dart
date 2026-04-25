@@ -25,6 +25,17 @@ class PresetState {
     parts: seedPartPresets,
     stocks: seedStockPresets,
   );
+
+  PresetState copyWith({
+    List<ColorPreset>? colors,
+    List<DimensionPreset>? parts,
+    List<DimensionPreset>? stocks,
+  }) =>
+      PresetState(
+        colors: colors ?? this.colors,
+        parts: parts ?? this.parts,
+        stocks: stocks ?? this.stocks,
+      );
 }
 
 /// presets.json I/O. 기본 경로는 path_provider의
