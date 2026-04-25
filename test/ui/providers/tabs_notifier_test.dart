@@ -233,4 +233,56 @@ void main() {
     final result = await notifier.reopenLastClosed();
     expect(result, false);
   });
+
+  test('duplicateTab on saved tab writes a new file with copy name', () async {
+    notifier.newUntitled();
+    final id = notifier.tabs.first.id;
+    notifier.updateName(id, '책장');
+    final orig = await notifier.saveAs(id);
+    expect(orig, p.join(tmp.path, '책장.cutmaster'));
+
+    final newPath = await notifier.duplicateTab(id);
+    expect(newPath, p.join(tmp.path, '책장 사본.cutmaster'));
+    expect(File(newPath!).existsSync(), true);
+    expect(notifier.tabs.length, 2);
+    expect(notifier.tabs.last.project.name, '책장 사본');
+    expect(notifier.activeId, notifier.tabs.last.id);
+  });
+
+  test('duplicateTab on untitled creates a new untitled tab', () async {
+    notifier.newUntitled();
+    final id = notifier.tabs.first.id;
+    notifier.updateName(id, '메모');
+
+    final result = await notifier.duplicateTab(id);
+    expect(result, null);
+    expect(notifier.tabs.length, 2);
+    expect(notifier.tabs.last.filePath, null);
+    expect(notifier.tabs.last.project.name, '메모 사본');
+  });
+
+  test('saveAsCopy creates a new tab with a separate file', () async {
+    notifier.newUntitled();
+    final id = notifier.tabs.first.id;
+    notifier.updateName(id, '책장');
+    await notifier.saveAs(id);
+
+    final newPath = await notifier.saveAsCopy(id, '책장-복제');
+    expect(newPath, p.join(tmp.path, '책장-복제.cutmaster'));
+    expect(File(newPath!).existsSync(), true);
+    expect(notifier.tabs.length, 2);
+    expect(notifier.activeId, notifier.tabs.last.id);
+  });
+
+  test('closeOthers closes all tabs except the kept one', () async {
+    notifier.newUntitled();
+    notifier.newUntitled();
+    notifier.newUntitled();
+    expect(notifier.tabs.length, 3);
+    final keep = notifier.tabs[1].id;
+
+    await notifier.closeOthers(keep);
+    expect(notifier.tabs.length, 1);
+    expect(notifier.tabs.first.id, keep);
+  });
 }

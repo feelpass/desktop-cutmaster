@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/tabs_provider.dart';
 import '../theme/app_colors.dart';
 import 'plus_button.dart';
+import 'tab_context_menu.dart';
 import 'tab_item.dart';
 
 /// 멀티 탭 워크스페이스 헤더. 가로 스크롤 + 끝에 [PlusButton].
@@ -45,16 +46,31 @@ class CutmasterTabBar extends ConsumerWidget {
                     child: Padding(
                       padding: const EdgeInsets.symmetric(
                           horizontal: 2, vertical: 2),
-                      child: TabItem(
-                        displayName: tab.project.name,
-                        isActive: tab.id == activeId,
-                        isDirty: tab.isDirty,
-                        isUntitled: tab.filePath == null,
-                        onTap: () => notifier.setActive(tab.id),
-                        onClose: () => notifier.closeTab(tab.id),
-                        // untitled은 in-memory 이름, saved 탭은 파일까지 rename
-                        onRenameSubmit: (name) =>
-                            notifier.renameSavedFile(tab.id, name),
+                      child: GestureDetector(
+                        behavior: HitTestBehavior.translucent,
+                        onSecondaryTapDown: (details) => showTabContextMenu(
+                          context: context,
+                          ref: ref,
+                          tabId: tab.id,
+                          position: details.globalPosition,
+                          onRename: () => showRenameDialog(
+                            context,
+                            ref,
+                            tab.id,
+                            tab.project.name,
+                          ),
+                        ),
+                        child: TabItem(
+                          displayName: tab.project.name,
+                          isActive: tab.id == activeId,
+                          isDirty: tab.isDirty,
+                          isUntitled: tab.filePath == null,
+                          onTap: () => notifier.setActive(tab.id),
+                          onClose: () => notifier.closeTab(tab.id),
+                          // untitled은 in-memory 이름, saved 탭은 파일까지 rename
+                          onRenameSubmit: (name) =>
+                              notifier.renameSavedFile(tab.id, name),
+                        ),
                       ),
                     ),
                   );

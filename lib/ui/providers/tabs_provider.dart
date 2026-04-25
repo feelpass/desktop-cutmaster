@@ -209,6 +209,107 @@ class TabsNotifier extends ChangeNotifier {
     return path;
   }
 
+  /// 현재 탭의 프로젝트를 복제하고 같은 폴더에 새 파일을 만들어 새 탭으로 연다.
+  /// untitled 탭은 메모리 상에서만 복제 (untitled 새 탭).
+  Future<String?> duplicateTab(String id) async {
+    if (_disposed) return null;
+    final tab = _tabs.firstWhereOrNull((t) => t.id == id);
+    if (tab == null) return null;
+
+    if (tab.filePath == null) {
+      // untitled — 메모리 복제
+      final newProject = Project(
+        id: _newProjectId(),
+        name: '${tab.project.name} 사본',
+        stocks: tab.project.stocks,
+        parts: tab.project.parts,
+        kerf: tab.project.kerf,
+        grainLocked: tab.project.grainLocked,
+        showPartLabels: tab.project.showPartLabels,
+        useSingleSheet: tab.project.useSingleSheet,
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+      );
+      final tabId = _newTabId();
+      _tabs = [
+        ..._tabs,
+        TabState(id: tabId, filePath: null, project: newProject, isDirty: true),
+      ];
+      _activeId = tabId;
+      notifyListeners();
+      _scheduleSave(tabId);
+      return null;
+    }
+
+    // 저장된 탭 — 같은 폴더에 새 파일
+    final folder = p.dirname(tab.filePath!);
+    final newProject = Project(
+      id: _newProjectId(),
+      name: '${tab.project.name} 사본',
+      stocks: tab.project.stocks,
+      parts: tab.project.parts,
+      kerf: tab.project.kerf,
+      grainLocked: tab.project.grainLocked,
+      showPartLabels: tab.project.showPartLabels,
+      useSingleSheet: tab.project.useSingleSheet,
+      createdAt: DateTime.now(),
+      updatedAt: DateTime.now(),
+    );
+    final newPath = await files.writeNew(
+      folder: folder,
+      baseName: '${tab.project.name} 사본',
+      project: newProject,
+    );
+    if (_disposed) return newPath;
+    final tabId = _newTabId();
+    _tabs = [
+      ..._tabs,
+      TabState(id: tabId, filePath: newPath, project: newProject, isDirty: false),
+    ];
+    _activeId = tabId;
+    await workspace.touchRecentFile(newPath, newProject.name);
+    if (_disposed) return newPath;
+    notifyListeners();
+    return newPath;
+  }
+
+  /// "다른 이름으로 저장..." — 현재 탭과는 별개로 새 파일을 만들고 그 파일을 새 탭으로 연다.
+  Future<String?> saveAsCopy(String id, String newName) async {
+    if (_disposed) return null;
+    final tab = _tabs.firstWhereOrNull((t) => t.id == id);
+    if (tab == null) return null;
+
+    final folder = tab.filePath != null
+        ? p.dirname(tab.filePath!)
+        : defaultProjectsDir;
+    final newPath = await files.writeNew(
+      folder: folder,
+      baseName: newName,
+      project: tab.project,
+    );
+    if (_disposed) return newPath;
+    final tabId = _newTabId();
+    _tabs = [
+      ..._tabs,
+      TabState(id: tabId, filePath: newPath, project: tab.project, isDirty: false),
+    ];
+    _activeId = tabId;
+    await workspace.touchRecentFile(newPath, tab.project.name);
+    if (_disposed) return newPath;
+    notifyListeners();
+    return newPath;
+  }
+
+  /// 지정 id 외 모든 탭 닫기.
+  Future<void> closeOthers(String keepId) async {
+    if (_disposed) return;
+    final ids = _tabs.where((t) => t.id != keepId).map((t) => t.id).toList();
+    for (final id in ids) {
+      await closeTab(id);
+      if (_disposed) return;
+    }
+  }
+
   /// 탭의 이름 + (저장된 탭이면) 파일도 같이 rename.
   /// untitled 탭은 메모리 이름만 변경되고 [null]을 반환.
   /// 저장된 탭은 파일을 같은 폴더 내에서 rename + workspace recent 갱신, 새 경로를 반환.
