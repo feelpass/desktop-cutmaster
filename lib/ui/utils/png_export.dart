@@ -11,11 +11,16 @@ import 'part_color.dart';
 
 /// 시트별 PNG 파일 저장. 기본 75dpi (메모리 압박 방지).
 /// 시트별로 stock 정보를 lookup해서 색상까지 반영.
+///
+/// [colorLookup]은 ColorPreset.id → ARGB(int)를 매핑한다 (id가 unknown이면
+/// null을 반환). 호출자(보통 위젯 트리)가 PresetsNotifier에서 closure로 만들어
+/// 주입한다 — non-widget util이라 ref를 직접 들지 않는다.
 Future<void> exportSheetsToPng(
   BuildContext context,
   CuttingPlan plan,
   List<StockSheet> stocks,
   bool showLabels, {
+  required int? Function(String? colorPresetId) colorLookup,
   double dpi = 75,
 }) async {
   final dir = await FilePicker.platform.getDirectoryPath(
@@ -28,7 +33,8 @@ Future<void> exportSheetsToPng(
   for (int i = 0; i < plan.sheets.length; i++) {
     final s = plan.sheets[i];
     final stock = stockById[s.stockSheetId];
-    final png = await _renderSheetToPng(s, stock, showLabels, dpi);
+    final png =
+        await _renderSheetToPng(s, stock, showLabels, dpi, colorLookup);
     if (png == null) continue;
     final file = File('$dir/cutmaster-sheet-${i + 1}.png');
     await file.writeAsBytes(png);
@@ -46,6 +52,7 @@ Future<Uint8List?> _renderSheetToPng(
   StockSheet? stock,
   bool showLabels,
   double dpi,
+  int? Function(String? colorPresetId) colorLookup,
 ) async {
   // mm → 인치 → 픽셀: dpi=75 기준 1mm ≈ 2.95px
   final pxPerMm = dpi / 25.4;
@@ -62,6 +69,7 @@ Future<Uint8List?> _renderSheetToPng(
     sheet: sheet,
     stock: stock,
     showLabels: showLabels,
+    colorLookup: colorLookup,
   ).paint();
 
   final picture = recorder.endRecording();
@@ -77,12 +85,14 @@ class _PaintAdapter {
     required this.sheet,
     required this.stock,
     required this.showLabels,
+    required this.colorLookup,
   });
   final Canvas canvas;
   final Size size;
   final SheetLayout sheet;
   final StockSheet? stock;
   final bool showLabels;
+  final int? Function(String? colorPresetId) colorLookup;
 
   void paint() {
     final scaleX = size.width / sheet.sheetLength;
@@ -90,7 +100,11 @@ class _PaintAdapter {
 
     // 시트 배경: 자재 색 tint
     final stockColor = stock != null
-        ? resolveColor(stock!.id, stock!.colorArgb, ColorPalette.stock)
+        ? resolveColor(
+            stock!.id,
+            colorLookup(stock!.colorPresetId),
+            ColorPalette.stock,
+          )
         : const Color(0xFFF5F5F7);
     final bgColor = Color.lerp(Colors.white, stockColor, 0.35) ?? stockColor;
     canvas.drawRect(Offset.zero & size, Paint()..color = bgColor);
@@ -116,7 +130,7 @@ class _PaintAdapter {
       );
       final color = resolveColor(
         pp.part.id,
-        pp.part.colorArgb,
+        colorLookup(pp.part.colorPresetId),
         ColorPalette.part,
       );
       canvas.drawRect(rect, Paint()..color = color.withValues(alpha: 0.45));

@@ -10,7 +10,7 @@ void main() {
         const StockSheet(
           id: 's1', length: 2440, width: 1220, qty: 2,
           label: '12T', grainDirection: GrainDirection.lengthwise,
-          colorArgb: 0xFF995533,
+          colorPresetId: 'cp_walnut',
         ),
       ],
       parts: [
@@ -26,7 +26,7 @@ void main() {
     );
 
     final json = orig.toJson();
-    expect(json['schemaVersion'], 1);
+    expect(json['schemaVersion'], 2);
 
     final back = Project.fromJson(json);
     expect(back.id, orig.id);

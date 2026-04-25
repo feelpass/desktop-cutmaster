@@ -55,7 +55,11 @@ class Project {
         updatedAt: DateTime.now(),
       );
 
-  static const int schemaVersion = 1;
+  /// On-disk JSON 스키마 버전.
+  /// v1: `CutPart`/`StockSheet`이 `color: int` (ARGB) 필드를 가졌음.
+  /// v2: 색상이 글로벌 `ColorPreset` 라이브러리로 이동 — `colorPresetId: String?`로 참조.
+  /// v1 파일은 `colorMatcher`를 통해 ARGB → preset id 마이그레이션을 거쳐 로드된다.
+  static const int schemaVersion = 2;
 
   Map<String, dynamic> toJson() => {
         'schemaVersion': schemaVersion,
@@ -71,7 +75,16 @@ class Project {
         'updatedAt': updatedAt.toIso8601String(),
       };
 
-  factory Project.fromJson(Map<String, dynamic> j) {
+  /// JSON에서 Project 복원.
+  ///
+  /// [colorMatcher]는 v1 → v2 마이그레이션용. v1 파일에는 `CutPart`/`StockSheet`에
+  /// `color: int` (ARGB)가 있었고, v2에서는 `colorPresetId: String?`만 가진다.
+  /// 호출자가 ColorPreset 라이브러리를 들여다보며 ARGB → preset id 매칭을
+  /// 책임진다 — 매칭 안 되면 `null`을 돌려주면 색상이 사라진 채로 로드된다.
+  factory Project.fromJson(
+    Map<String, dynamic> j, {
+    String? Function(int argb)? colorMatcher,
+  }) {
     final v = j['schemaVersion'] as int? ?? 1;
     if (v > schemaVersion) {
       throw FormatException('Unsupported schemaVersion: $v');
@@ -80,10 +93,12 @@ class Project {
       id: j['id'] as String,
       name: j['name'] as String,
       stocks: ((j['stocks'] as List?) ?? const [])
-          .map((e) => StockSheet.fromJson(e as Map<String, dynamic>))
+          .map((e) => StockSheet.fromJson(e as Map<String, dynamic>,
+              colorMatcher: colorMatcher))
           .toList(),
       parts: ((j['parts'] as List?) ?? const [])
-          .map((e) => CutPart.fromJson(e as Map<String, dynamic>))
+          .map((e) => CutPart.fromJson(e as Map<String, dynamic>,
+              colorMatcher: colorMatcher))
           .toList(),
       kerf: ((j['kerf'] as num?) ?? 3).toDouble(),
       grainLocked: (j['grainLocked'] as bool?) ?? false,

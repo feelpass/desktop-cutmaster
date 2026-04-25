@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../domain/models/cutting_plan.dart';
 import '../../l10n/app_localizations.dart';
+import '../providers/preset_provider.dart';
 import '../providers/tabs_provider.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_text_styles.dart';
@@ -52,12 +53,17 @@ class CuttingResultPane extends ConsumerWidget {
               OutlinedButton.icon(
                 onPressed: plan.sheets.isEmpty
                     ? null
-                    : () => exportSheetsToPng(
+                    : () {
+                        final presets = ref.read(presetsProvider);
+                        exportSheetsToPng(
                           context,
                           plan,
                           ref.read(tabsProvider).active!.project.stocks,
                           showLabels,
-                        ),
+                          colorLookup: (id) =>
+                              id == null ? null : presets.colorById(id)?.argb,
+                        );
+                      },
                 icon: const Icon(Icons.image_outlined, size: 16),
                 label: Text(t.exportPng),
               ),

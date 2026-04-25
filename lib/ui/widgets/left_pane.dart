@@ -6,6 +6,7 @@ import '../theme/app_colors.dart';
 import '../theme/app_text_styles.dart';
 import 'options_section.dart';
 import 'parts_table.dart';
+import 'preset_management_dialog.dart';
 import 'stocks_table.dart';
 
 class LeftPane extends ConsumerWidget {
@@ -18,17 +19,21 @@ class LeftPane extends ConsumerWidget {
       color: AppColors.surface,
       child: ListView(
         children: [
-          _Section(
+          LeftPaneSection(
             title: t.parts,
             icon: Icons.inventory_2_outlined,
+            onSettings: () =>
+                showPresetManagementDialog(context, PresetKind.part),
             child: const PartsTable(),
           ),
-          _Section(
+          LeftPaneSection(
             title: t.stockSheets,
             icon: Icons.layers_outlined,
+            onSettings: () =>
+                showPresetManagementDialog(context, PresetKind.stock),
             child: const StocksTable(),
           ),
-          _Section(
+          LeftPaneSection(
             title: t.options,
             icon: Icons.tune,
             child: const OptionsSection(),
@@ -39,22 +44,32 @@ class LeftPane extends ConsumerWidget {
   }
 }
 
-class _Section extends StatefulWidget {
-  const _Section({
+/// 좌측 패널의 접이식 섹션 — 헤더 [arrow][icon][title]에 더해
+/// [onSettings]가 주어지면 우측 끝에 ⚙️ 버튼이 노출된다.
+///
+/// ⚙️ 탭은 헤더의 expand/collapse 토글과 분리되어야 한다.
+@visibleForTesting
+class LeftPaneSection extends StatefulWidget {
+  const LeftPaneSection({
+    super.key,
     required this.title,
     required this.icon,
     required this.child,
+    this.onSettings,
   });
 
   final String title;
   final IconData icon;
   final Widget child;
 
+  /// 헤더 우측 ⚙️ 버튼 콜백. null이면 버튼이 렌더되지 않는다.
+  final VoidCallback? onSettings;
+
   @override
-  State<_Section> createState() => _SectionState();
+  State<LeftPaneSection> createState() => _LeftPaneSectionState();
 }
 
-class _SectionState extends State<_Section> {
+class _LeftPaneSectionState extends State<LeftPaneSection> {
   bool _expanded = true;
 
   @override
@@ -77,7 +92,29 @@ class _SectionState extends State<_Section> {
                   const SizedBox(width: 4),
                   Icon(widget.icon, size: 14, color: AppColors.tableHeaderText),
                   const SizedBox(width: 6),
-                  Text(widget.title, style: AppTextStyles.sectionHeader),
+                  Expanded(
+                    child: Text(widget.title, style: AppTextStyles.sectionHeader),
+                  ),
+                  if (widget.onSettings != null)
+                    // 외부 InkWell의 expand/collapse 토글이 ⚙️ 탭에서
+                    // 발화되지 않도록 GestureDetector(opaque)로 감싼다 —
+                    // GestureDetector가 hit을 흡수하면 부모 InkWell.onTap은
+                    // 호출되지 않는다.
+                    GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: widget.onSettings,
+                      child: const Tooltip(
+                        message: '프리셋 관리',
+                        child: Padding(
+                          padding: EdgeInsets.all(4),
+                          child: Icon(
+                            Icons.settings,
+                            size: 14,
+                            color: AppColors.tableHeaderText,
+                          ),
+                        ),
+                      ),
+                    ),
                 ],
               ),
             ),

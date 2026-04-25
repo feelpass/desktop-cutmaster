@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../domain/models/cutting_plan.dart';
 import '../../domain/models/stock_sheet.dart';
+import '../providers/preset_provider.dart';
 import '../theme/app_colors.dart';
 import '../utils/part_color.dart';
 
@@ -12,7 +14,7 @@ import '../utils/part_color.dart';
 /// `maxSheetLength`가 null이면 자기 폭을 가득 채움 (단일 시트일 때 유용).
 ///
 /// 자재 색상을 시트 배경 tint로, 부품 색상은 자기 색으로 그려서 시각 층 구분.
-class CuttingCanvas extends StatelessWidget {
+class CuttingCanvas extends ConsumerWidget {
   const CuttingCanvas({
     super.key,
     required this.sheet,
@@ -27,7 +29,11 @@ class CuttingCanvas extends StatelessWidget {
   final double? maxSheetLength;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final presets = ref.watch(presetsProvider);
+    int? lookup(String? id) =>
+        id == null ? null : presets.colorById(id)?.argb;
+
     return LayoutBuilder(
       builder: (ctx, constraints) {
         // available width = 부모로부터 받은 max width
@@ -49,6 +55,7 @@ class CuttingCanvas extends StatelessWidget {
                 sheet: sheet,
                 stock: stock,
                 showLabels: showLabels,
+                colorLookup: lookup,
               ),
             ),
           ),
@@ -63,11 +70,13 @@ class _CuttingPainter extends CustomPainter {
     required this.sheet,
     required this.stock,
     required this.showLabels,
+    required this.colorLookup,
   });
 
   final SheetLayout sheet;
   final StockSheet? stock;
   final bool showLabels;
+  final int? Function(String? colorPresetId) colorLookup;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -76,7 +85,11 @@ class _CuttingPainter extends CustomPainter {
 
     // 시트 배경: 자재 색상의 옅은 tint (자재 식별, 부품 가독성 유지).
     final stockColor = stock != null
-        ? resolveColor(stock!.id, stock!.colorArgb, ColorPalette.stock)
+        ? resolveColor(
+            stock!.id,
+            colorLookup(stock!.colorPresetId),
+            ColorPalette.stock,
+          )
         : AppColors.surface;
     final bgColor = Color.lerp(Colors.white, stockColor, 0.35) ?? stockColor;
     canvas.drawRect(Offset.zero & size, Paint()..color = bgColor);
@@ -103,7 +116,7 @@ class _CuttingPainter extends CustomPainter {
       );
       final color = resolveColor(
         pp.part.id,
-        pp.part.colorArgb,
+        colorLookup(pp.part.colorPresetId),
         ColorPalette.part,
       );
       canvas.drawRect(rect, Paint()..color = color.withValues(alpha: 0.45));
