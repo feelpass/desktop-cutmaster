@@ -12,24 +12,51 @@ import '../../domain/models/cut_part.dart';
 import '../../domain/models/project.dart';
 import '../../domain/models/stock_sheet.dart';
 
+/// 외부 mtime 충돌로 인해 분기 저장된 사실을 UI 측에 알리기 위한 메시지.
+/// Task 19에서 SnackBar 등으로 surface 된다.
+@immutable
+class ConflictNotice {
+  final String tabId;
+  final String originalPath;
+  final String forkPath;
+  const ConflictNotice({
+    required this.tabId,
+    required this.originalPath,
+    required this.forkPath,
+  });
+}
+
 @immutable
 class TabState {
   final String id;
   final String? filePath;
   final Project project;
   final bool isDirty;
+
+  /// 마지막으로 read/write 한 시점에 기록된 디스크 mtime.
+  /// 외부 편집기(Dropbox/iCloud)가 사이에 파일을 수정했는지를
+  /// [_persist]에서 판정하는 데 쓰인다.
+  final DateTime? mtime;
   const TabState({
     required this.id,
     required this.filePath,
     required this.project,
     required this.isDirty,
+    this.mtime,
   });
-  TabState copyWith({String? filePath, Project? project, bool? isDirty}) =>
+  TabState copyWith({
+    String? filePath,
+    Project? project,
+    bool? isDirty,
+    DateTime? mtime,
+    bool clearMtime = false,
+  }) =>
       TabState(
         id: id,
         filePath: filePath ?? this.filePath,
         project: project ?? this.project,
         isDirty: isDirty ?? this.isDirty,
+        mtime: clearMtime ? null : (mtime ?? this.mtime),
       );
 }
 
@@ -54,6 +81,13 @@ class TabsNotifier extends ChangeNotifier {
   final Map<String, Future<String?>> _saveAsInFlight = {};
   int _idCounter = 0;
   bool _disposed = false;
+
+  /// 가장 최근에 발생한 외부 충돌 분기 알림 — Task 19에서 SnackBar로 surface.
+  ConflictNotice? _lastConflict;
+  ConflictNotice? get lastConflict => _lastConflict;
+  void clearLastConflict() {
+    _lastConflict = null;
+  }
 
   List<TabState> get tabs => List.unmodifiable(_tabs);
   String? get activeId => _activeId;
@@ -82,15 +116,21 @@ class TabsNotifier extends ChangeNotifier {
       notifyListeners();
       return;
     }
-    final project = await files.read(path);
+    final res = await files.readWithMtime(path);
     if (_disposed) return;
     final id = _newTabId();
     _tabs = [
       ..._tabs,
-      TabState(id: id, filePath: path, project: project, isDirty: false),
+      TabState(
+        id: id,
+        filePath: path,
+        project: res.project,
+        isDirty: false,
+        mtime: res.mtime,
+      ),
     ];
     _activeId = id;
-    await workspace.touchRecentFile(path, project.name);
+    await workspace.touchRecentFile(path, res.project.name);
     if (_disposed) return;
     notifyListeners();
   }
@@ -189,8 +229,12 @@ class TabsNotifier extends ChangeNotifier {
     if (tab == null) return null;
 
     if (tab.filePath != null) {
-      await files.overwrite(tab.filePath!, tab.project);
-      _setTab(id, (t) => t.copyWith(isDirty: false));
+      final newMtime = await files.overwrite(
+        tab.filePath!,
+        tab.project,
+        expectedMtime: tab.mtime,
+      );
+      _setTab(id, (t) => t.copyWith(isDirty: false, mtime: newMtime));
       return tab.filePath;
     }
 
@@ -200,12 +244,14 @@ class TabsNotifier extends ChangeNotifier {
       baseName: baseName,
       project: tab.project,
     );
+    final mtime = await File(path).lastModified();
 
     final autosaveFile = File(p.join(autosaveDir, '${tab.id}.cutmaster'));
     if (autosaveFile.existsSync()) await autosaveFile.delete();
 
     await workspace.touchRecentFile(path, tab.project.name);
-    _setTab(id, (t) => t.copyWith(filePath: path, isDirty: false));
+    _setTab(id,
+        (t) => t.copyWith(filePath: path, isDirty: false, mtime: mtime));
     return path;
   }
 
@@ -260,11 +306,18 @@ class TabsNotifier extends ChangeNotifier {
       baseName: '${tab.project.name} 사본',
       project: newProject,
     );
+    final newMtime = await File(newPath).lastModified();
     if (_disposed) return newPath;
     final tabId = _newTabId();
     _tabs = [
       ..._tabs,
-      TabState(id: tabId, filePath: newPath, project: newProject, isDirty: false),
+      TabState(
+        id: tabId,
+        filePath: newPath,
+        project: newProject,
+        isDirty: false,
+        mtime: newMtime,
+      ),
     ];
     _activeId = tabId;
     await workspace.touchRecentFile(newPath, newProject.name);
@@ -287,11 +340,18 @@ class TabsNotifier extends ChangeNotifier {
       baseName: newName,
       project: tab.project,
     );
+    final newMtime = await File(newPath).lastModified();
     if (_disposed) return newPath;
     final tabId = _newTabId();
     _tabs = [
       ..._tabs,
-      TabState(id: tabId, filePath: newPath, project: tab.project, isDirty: false),
+      TabState(
+        id: tabId,
+        filePath: newPath,
+        project: tab.project,
+        isDirty: false,
+        mtime: newMtime,
+      ),
     ];
     _activeId = tabId;
     await workspace.touchRecentFile(newPath, tab.project.name);
@@ -334,11 +394,13 @@ class TabsNotifier extends ChangeNotifier {
 
     // 저장된 탭
     final newPath = await files.rename(tab.filePath!, cleanName);
+    final newMtime = await File(newPath).lastModified();
     if (_disposed) return newPath;
     _setTab(id, (t) => t.copyWith(
           filePath: newPath,
           project: t.project.copyWith(name: cleanName),
           isDirty: false,
+          mtime: newMtime,
         ));
     await workspace.touchRecentFile(newPath, cleanName);
     if (tab.filePath != newPath) {
@@ -357,16 +419,69 @@ class TabsNotifier extends ChangeNotifier {
     final tab = _tabs.firstWhereOrNull((t) => t.id == id);
     if (tab == null || !tab.isDirty) return;
     if (tab.filePath != null) {
-      await files.overwrite(tab.filePath!, tab.project);
+      try {
+        final newMtime = await files.overwrite(
+          tab.filePath!,
+          tab.project,
+          expectedMtime: tab.mtime,
+        );
+        if (_disposed) return;
+        _setTab(id, (t) => t.copyWith(isDirty: false, mtime: newMtime));
+      } on ConflictException catch (e) {
+        // 외부 편집기가 사이에 파일을 수정함 — 분기 저장 (fork)
+        await _forkOnConflict(id, tab, e);
+      }
     } else {
       await Directory(autosaveDir).create(recursive: true);
+      // autosave 파일은 외부 편집 케어 대상이 아님 → mtime 검사 X
       await files.overwrite(
         p.join(autosaveDir, '${tab.id}.cutmaster'),
         tab.project,
       );
+      if (_disposed) return;
+      _setTab(id, (t) => t.copyWith(isDirty: false));
     }
-    if (_disposed) return;
-    _setTab(id, (t) => t.copyWith(isDirty: false));
+  }
+
+  Future<void> _forkOnConflict(
+    String id,
+    TabState tab,
+    ConflictException e,
+  ) async {
+    final originalPath = tab.filePath!;
+    final folder = p.dirname(originalPath);
+    final currentBase = p.basenameWithoutExtension(originalPath);
+    final forkBase = '$currentBase (충돌 사본)';
+    try {
+      final forkPath = await files.writeNew(
+        folder: folder,
+        baseName: forkBase,
+        project: tab.project,
+      );
+      final forkMtime = await File(forkPath).lastModified();
+      if (_disposed) return;
+      _setTab(
+        id,
+        (t) => t.copyWith(
+          filePath: forkPath,
+          isDirty: false,
+          mtime: forkMtime,
+        ),
+      );
+      await workspace.touchRecentFile(forkPath, tab.project.name);
+      _lastConflict = ConflictNotice(
+        tabId: id,
+        originalPath: originalPath,
+        forkPath: forkPath,
+      );
+      debugPrint(
+        'tab "$id" forked due to mtime conflict: $originalPath '
+        '(expected ${e.expected}, found ${e.found}) -> $forkPath',
+      );
+      notifyListeners();
+    } catch (err) {
+      debugPrint('fork-on-conflict failed for tab "$id": $err');
+    }
   }
 
   Future<void> flushAll() async {
@@ -387,11 +502,15 @@ class TabsNotifier extends ChangeNotifier {
     for (final r in rows) {
       try {
         final Project pr;
+        DateTime? mtime;
         if (r.filePath != null && File(r.filePath!).existsSync()) {
-          pr = await files.read(r.filePath!);
+          final res = await files.readWithMtime(r.filePath!);
+          pr = res.project;
+          mtime = res.mtime;
         } else {
           final autosavePath = p.join(autosaveDir, '${r.id}.cutmaster');
           if (!File(autosavePath).existsSync()) continue; // 고아 — 스킵
+          // autosave는 충돌 검사 대상이 아니므로 mtime은 보관하지 않는다.
           pr = await files.read(autosavePath);
         }
         loaded.add(TabState(
@@ -399,6 +518,7 @@ class TabsNotifier extends ChangeNotifier {
           filePath: r.filePath,
           project: pr,
           isDirty: false,
+          mtime: mtime,
         ));
         if (r.isActive) activeId = r.id;
       } catch (_) {

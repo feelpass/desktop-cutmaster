@@ -285,4 +285,28 @@ void main() {
     expect(notifier.tabs.length, 1);
     expect(notifier.tabs.first.id, keep);
   });
+
+  test('_persist forks to (충돌 사본).cutmaster on external mtime conflict',
+      () async {
+    notifier.newUntitled();
+    final id = notifier.tabs.first.id;
+    notifier.updateName(id, '책장');
+    final path = await notifier.saveAs(id);
+
+    // 외부에서 파일을 수정해서 mtime을 미래로 점프 (FS 정밀도 1s 고려해 2s+)
+    await Future<void>.delayed(const Duration(milliseconds: 2100));
+    await File(path!).writeAsString('{"schemaVersion":1,"id":"x","name":"외부"}');
+
+    // 우리가 변경하고 flush — 충돌이 분기 저장으로 처리되어야 함
+    notifier.updateKerf(id, 9);
+    await notifier.flushAll();
+
+    final tab = notifier.tabs.first;
+    expect(tab.filePath, isNot(path));
+    expect(tab.filePath!.endsWith('(충돌 사본).cutmaster'), true);
+    expect(File(tab.filePath!).existsSync(), true);
+    expect(notifier.lastConflict, isNotNull);
+    expect(notifier.lastConflict!.originalPath, path);
+    expect(notifier.lastConflict!.forkPath, tab.filePath);
+  });
 }

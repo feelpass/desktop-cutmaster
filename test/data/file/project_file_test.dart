@@ -83,6 +83,33 @@ void main() {
     );
   });
 
+  test('overwrite throws ConflictException when expectedMtime stale', () async {
+    final svc = ProjectFileService();
+    final p0 = Project.create(id: 'a', name: '책장');
+    final path =
+        await svc.writeNew(folder: tmp.path, baseName: '책장', project: p0);
+
+    // Touch file to make its mtime newer than what we'll claim
+    await Future<void>.delayed(const Duration(milliseconds: 1100));
+    await svc.overwrite(path, p0); // bumps mtime
+
+    final stale = DateTime.now().subtract(const Duration(seconds: 5));
+    expect(
+      () => svc.overwrite(path, p0, expectedMtime: stale),
+      throwsA(isA<ConflictException>()),
+    );
+  });
+
+  test('readWithMtime returns project + file mtime', () async {
+    final svc = ProjectFileService();
+    final p0 = Project.create(id: 'a', name: '책장');
+    final path =
+        await svc.writeNew(folder: tmp.path, baseName: '책장', project: p0);
+    final res = await svc.readWithMtime(path);
+    expect(res.project.name, '책장');
+    expect(res.mtime, isA<DateTime>());
+  });
+
   group('sanitizeBaseName', () {
     test('strips forbidden chars', () {
       expect(ProjectFileService.sanitizeBaseName(r'a/b\c:d*e?f"g<h>i|j'), 'abcdefghij');
