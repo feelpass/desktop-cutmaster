@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:collection/collection.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as p;
 
 import '../../data/file/project_file.dart';
@@ -236,6 +237,56 @@ class TabsNotifier extends ChangeNotifier {
     }
   }
 
+  // === Session restore / save ===
+
+  Future<void> restoreSession() async {
+    if (_disposed) return;
+    final rows = await workspace.listTabs();
+    if (_disposed) return;
+    final loaded = <TabState>[];
+    String? activeId;
+    for (final r in rows) {
+      try {
+        final Project pr;
+        if (r.filePath != null && File(r.filePath!).existsSync()) {
+          pr = await files.read(r.filePath!);
+        } else {
+          final autosavePath = p.join(autosaveDir, '${r.id}.cutmaster');
+          if (!File(autosavePath).existsSync()) continue; // 고아 — 스킵
+          pr = await files.read(autosavePath);
+        }
+        loaded.add(TabState(
+          id: r.id,
+          filePath: r.filePath,
+          project: pr,
+          isDirty: false,
+        ));
+        if (r.isActive) activeId = r.id;
+      } catch (_) {
+        // 손상 / 권한 — 그 탭만 스킵
+      }
+    }
+    if (_disposed) return;
+    _tabs = loaded;
+    _activeId = activeId ?? (loaded.isNotEmpty ? loaded.first.id : null);
+    notifyListeners();
+  }
+
+  Future<void> saveSession() async {
+    final rows = <TabRow>[];
+    for (var i = 0; i < _tabs.length; i++) {
+      final t = _tabs[i];
+      rows.add(TabRow(
+        id: t.id,
+        filePath: t.filePath,
+        displayName: t.project.name,
+        position: i,
+        isActive: t.id == _activeId,
+      ));
+    }
+    await workspace.replaceAllTabs(rows);
+  }
+
   void _setTab(String id, TabState Function(TabState) f) {
     if (_disposed) return;
     _tabs = _tabs.map((t) => t.id == id ? f(t) : t).toList();
@@ -258,3 +309,17 @@ class TabsNotifier extends ChangeNotifier {
     super.dispose();
   }
 }
+
+// === Riverpod providers ===
+
+final tabsProvider =
+    ChangeNotifierProvider<TabsNotifier>((ref) => throw UnimplementedError(
+        '`tabsProvider`는 main.dart의 ProviderScope overrides에서 주입됩니다.'));
+
+final activeTabIdProvider = Provider<String?>(
+  (ref) => ref.watch(tabsProvider).activeId,
+);
+
+final activeProjectProvider = Provider<Project?>(
+  (ref) => ref.watch(tabsProvider).active?.project,
+);
