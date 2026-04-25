@@ -8,6 +8,7 @@ import '../utils/part_color.dart';
 import 'color_swatch_button.dart';
 import 'editable_dimension_table.dart';
 import 'preset_dialog.dart';
+import 'preset_management_dialog.dart' show PresetKind;
 
 class StocksTable extends ConsumerWidget {
   const StocksTable({super.key});
@@ -77,8 +78,8 @@ class StocksTable extends ConsumerWidget {
           alignment: Alignment.centerLeft,
           child: OutlinedButton.icon(
             onPressed: () async {
-              final picked = await showPresetDialog(context);
-              if (picked != null) {
+              final picked = await showPresetDialog(context, PresetKind.stock);
+              if (picked is StockSheet) {
                 final updated = [...project.stocks, picked];
                 ref.read(tabsProvider).updateStocks(activeId, updated);
               }
