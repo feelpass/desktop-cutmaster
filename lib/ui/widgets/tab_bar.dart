@@ -8,10 +8,10 @@ import 'tab_item.dart';
 
 /// 멀티 탭 워크스페이스 헤더. 가로 스크롤 + 끝에 [PlusButton].
 ///
-/// TODO(task-12): 드래그-정렬 지원. ReorderableListView를 시도했으나
-/// `ReorderableDragStartListener`가 자식의 tap (close 버튼 포함)을
-/// intercept해서 tap 콜백이 작동하지 않는 이슈가 있어 우선 ListView로
-/// 폴백. 향후 long-press only listener + 별도 InkWell 조합으로 재구현 예정.
+/// long-press로 드래그-정렬 가능. 짧은 tap은 그대로 자식([TabItem])에
+/// 전달되어 탭 활성화/닫기/이름 변경 등이 정상 동작한다
+/// ([ReorderableDelayedDragStartListener]가 long-press 이전까지 gesture
+/// arena claim을 미루기 때문).
 class CutmasterTabBar extends ConsumerWidget {
   const CutmasterTabBar({super.key});
 
@@ -30,21 +30,30 @@ class CutmasterTabBar extends ConsumerWidget {
             // 탭 영역을 가리지 않도록 비활성화한다.
             child: ScrollConfiguration(
               behavior: const _NoScrollbarBehavior(),
-              child: ListView.builder(
+              child: ReorderableListView.builder(
                 scrollDirection: Axis.horizontal,
+                buildDefaultDragHandles: false,
+                onReorder: notifier.reorder,
                 itemCount: tabs.length,
                 itemBuilder: (ctx, i) {
                   final tab = tabs[i];
-                  return TabItem(
+                  return ReorderableDelayedDragStartListener(
                     key: ValueKey(tab.id),
-                    displayName: tab.project.name,
-                    isActive: tab.id == activeId,
-                    isDirty: tab.isDirty,
-                    isUntitled: tab.filePath == null,
-                    onTap: () => notifier.setActive(tab.id),
-                    onClose: () => notifier.closeTab(tab.id),
-                    onRenameSubmit: (name) =>
-                        notifier.updateName(tab.id, name),
+                    index: i,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 2, vertical: 2),
+                      child: TabItem(
+                        displayName: tab.project.name,
+                        isActive: tab.id == activeId,
+                        isDirty: tab.isDirty,
+                        isUntitled: tab.filePath == null,
+                        onTap: () => notifier.setActive(tab.id),
+                        onClose: () => notifier.closeTab(tab.id),
+                        onRenameSubmit: (name) =>
+                            notifier.updateName(tab.id, name),
+                      ),
+                    ),
                   );
                 },
               ),

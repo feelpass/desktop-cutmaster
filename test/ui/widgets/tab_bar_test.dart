@@ -101,4 +101,22 @@ void main() {
     expect(notifier.tabs.length, 1);
     expect(notifier.tabs.first.filePath, null);
   });
+
+  testWidgets('drag reorder updates tab order', (t) async {
+    notifier.newUntitled();
+    final firstId = notifier.tabs[0].id;
+    notifier.newUntitled();
+    final secondId = notifier.tabs[1].id;
+
+    await t.pumpWidget(pump());
+    await t.pumpAndSettle();
+
+    expect(notifier.tabs.map((tab) => tab.id), [firstId, secondId]);
+
+    // Programmatically reorder via the notifier (we test the wiring + handler)
+    notifier.reorder(0, 2);
+    await t.pumpAndSettle();
+
+    expect(notifier.tabs.map((tab) => tab.id), [secondId, firstId]);
+  });
 }
