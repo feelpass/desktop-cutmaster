@@ -6,6 +6,7 @@ import '../../l10n/app_localizations.dart';
 import '../providers/current_project_provider.dart';
 import '../providers/db_provider.dart';
 import '../theme/app_colors.dart';
+import 'rename_project_dialog.dart';
 
 class ProjectDropdown extends ConsumerWidget {
   const ProjectDropdown({super.key, required this.currentName});
@@ -35,6 +36,16 @@ class ProjectDropdown extends ConsumerWidget {
                     )),
                 if (list.isNotEmpty) const PopupMenuDivider(),
                 PopupMenuItem(
+                  value: _MenuAction.rename,
+                  child: Row(
+                    children: [
+                      const Icon(Icons.edit_outlined, size: 16),
+                      const SizedBox(width: 4),
+                      const Text('이름 변경'),
+                    ],
+                  ),
+                ),
+                PopupMenuItem(
                   value: _MenuAction.create,
                   child: Row(
                     children: [
@@ -45,7 +56,7 @@ class ProjectDropdown extends ConsumerWidget {
                   ),
                 ),
               ],
-            ).then((action) {
+            ).then((action) async {
               if (action == null) return;
               if (action.kind == _Kind.create) {
                 ref.read(currentProjectProvider.notifier).setProject(
@@ -56,10 +67,22 @@ class ProjectDropdown extends ConsumerWidget {
                         name: t.newProject,
                       ),
                     );
-              } else if (action.kind == _Kind.select && action.project != null) {
+              } else if (action.kind == _Kind.select &&
+                  action.project != null) {
                 ref
                     .read(currentProjectProvider.notifier)
                     .setProject(action.project!);
+              } else if (action.kind == _Kind.rename) {
+                if (!context.mounted) return;
+                final newName = await showRenameProjectDialog(
+                  context,
+                  currentName: currentName,
+                );
+                if (newName != null) {
+                  ref
+                      .read(currentProjectProvider.notifier)
+                      .updateName(newName);
+                }
               }
             });
           },
@@ -88,12 +111,13 @@ class ProjectDropdown extends ConsumerWidget {
   }
 }
 
-enum _Kind { create, select }
+enum _Kind { create, select, rename }
 
 class _MenuAction {
   final _Kind kind;
   final Project? project;
   const _MenuAction._(this.kind, this.project);
   static const create = _MenuAction._(_Kind.create, null);
+  static const rename = _MenuAction._(_Kind.rename, null);
   static _MenuAction select(Project p) => _MenuAction._(_Kind.select, p);
 }
