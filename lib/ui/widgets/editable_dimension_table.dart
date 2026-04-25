@@ -1,10 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../domain/models/stock_sheet.dart' show GrainDirection;
 import '../../l10n/app_localizations.dart';
+import '../providers/preset_provider.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_text_styles.dart';
+import 'qty_stepper.dart';
 
-/// 부품/자재 공통 inline editable table (가로/세로/수량/라벨).
+/// 부품/자재 공통 inline editable table.
+///
+/// 각 행은 두 줄로 구성된다:
+///  - 1줄(편집 가능): [swatch] [length] × [width] [QtyStepper] [✕]
+///  - 메타 줄: [색상 이름] · [결방향 아이콘] · [라벨 (인라인 편집)]
 class EditableDimensionTable extends StatelessWidget {
   const EditableDimensionTable({
     super.key,
@@ -33,21 +41,27 @@ class EditableDimensionTable extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // header
+        // header — 길이 / 폭 / 수량 (label은 메타줄로 이동)
         Padding(
           padding: const EdgeInsets.only(bottom: 4),
           child: Row(
             children: [
               if (hasLeading) const SizedBox(width: 28),
-              Expanded(child: Text(t.length, style: AppTextStyles.tableHeader)),
-              Expanded(child: Text(t.width, style: AppTextStyles.tableHeader)),
-              SizedBox(
-                  width: 50,
-                  child: Text(t.qty, style: AppTextStyles.tableHeader)),
               Expanded(
                   flex: 2,
-                  child: Text(t.label, style: AppTextStyles.tableHeader)),
-              const SizedBox(width: 36),
+                  child: Text(t.length, style: AppTextStyles.tableHeader)),
+              const SizedBox(width: 4),
+              const SizedBox(width: 12), // × 기호 자리
+              const SizedBox(width: 4),
+              Expanded(
+                  flex: 2,
+                  child: Text(t.width, style: AppTextStyles.tableHeader)),
+              const SizedBox(width: 6),
+              SizedBox(
+                  width: 80,
+                  child: Text(t.qty, style: AppTextStyles.tableHeader)),
+              const SizedBox(width: 4),
+              const SizedBox(width: 28), // delete button 자리
             ],
           ),
         ),
@@ -78,7 +92,15 @@ class EditableDimensionTable extends StatelessWidget {
             onPressed: () {
               final next = [
                 ...rows,
-                EditableRow(id: newId(), length: 0, width: 0, qty: 1, label: '')
+                EditableRow(
+                  id: newId(),
+                  length: 0,
+                  width: 0,
+                  qty: 1,
+                  label: '',
+                  colorPresetId: null,
+                  grainDirection: GrainDirection.none,
+                ),
               ];
               onChanged(next);
             },
@@ -97,6 +119,8 @@ class EditableRow {
   final double width;
   final int qty;
   final String label;
+  final String? colorPresetId;
+  final GrainDirection grainDirection;
 
   const EditableRow({
     required this.id,
@@ -104,15 +128,26 @@ class EditableRow {
     required this.width,
     required this.qty,
     required this.label,
+    this.colorPresetId,
+    this.grainDirection = GrainDirection.none,
   });
 
-  EditableRow copyWith({double? length, double? width, int? qty, String? label}) =>
+  EditableRow copyWith({
+    double? length,
+    double? width,
+    int? qty,
+    String? label,
+    String? colorPresetId,
+    GrainDirection? grainDirection,
+  }) =>
       EditableRow(
         id: id,
         length: length ?? this.length,
         width: width ?? this.width,
         qty: qty ?? this.qty,
         label: label ?? this.label,
+        colorPresetId: colorPresetId ?? this.colorPresetId,
+        grainDirection: grainDirection ?? this.grainDirection,
       );
 }
 
@@ -139,7 +174,6 @@ class _RowField extends StatefulWidget {
 class _RowFieldState extends State<_RowField> {
   late final TextEditingController _lenCtrl;
   late final TextEditingController _widCtrl;
-  late final TextEditingController _qtyCtrl;
   late final TextEditingController _labelCtrl;
 
   @override
@@ -149,7 +183,6 @@ class _RowFieldState extends State<_RowField> {
         text: widget.row.length == 0 ? '' : widget.row.length.toStringAsFixed(0));
     _widCtrl = TextEditingController(
         text: widget.row.width == 0 ? '' : widget.row.width.toStringAsFixed(0));
-    _qtyCtrl = TextEditingController(text: widget.row.qty.toString());
     _labelCtrl = TextEditingController(text: widget.row.label);
   }
 
@@ -157,49 +190,70 @@ class _RowFieldState extends State<_RowField> {
   void dispose() {
     _lenCtrl.dispose();
     _widCtrl.dispose();
-    _qtyCtrl.dispose();
     _labelCtrl.dispose();
     super.dispose();
   }
 
-  void _commit() {
+  void _commitDims() {
     final next = widget.row.copyWith(
       length: double.tryParse(_lenCtrl.text) ?? 0,
       width: double.tryParse(_widCtrl.text) ?? 0,
-      qty: int.tryParse(_qtyCtrl.text) ?? 1,
-      label: _labelCtrl.text,
     );
     widget.onChanged(next);
   }
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 2),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          if (widget.leading != null) ...[
-            SizedBox(width: 24, child: widget.leading),
-            const SizedBox(width: 4),
-          ],
-          Expanded(child: _cell(_lenCtrl, true)),
-          const SizedBox(width: 4),
-          Expanded(child: _cell(_widCtrl, true)),
-          const SizedBox(width: 4),
-          SizedBox(width: 50, child: _cell(_qtyCtrl, true)),
-          const SizedBox(width: 4),
-          Expanded(flex: 2, child: _cell(_labelCtrl, false)),
-          IconButton(
-            icon: const Icon(Icons.close, size: 14),
-            tooltip: widget.deleteTooltip,
-            onPressed: widget.onDelete,
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(maxHeight: 28, maxWidth: 28),
-            color: AppColors.textSecondary,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // 1줄: 편집 가능
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 2),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              if (widget.leading != null) ...[
+                SizedBox(width: 24, child: widget.leading),
+                const SizedBox(width: 4),
+              ],
+              Expanded(flex: 2, child: _cell(_lenCtrl, true)),
+              const SizedBox(width: 4),
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 2),
+                child: Text('×',
+                    style: TextStyle(color: AppColors.textSecondary)),
+              ),
+              const SizedBox(width: 4),
+              Expanded(flex: 2, child: _cell(_widCtrl, true)),
+              const SizedBox(width: 6),
+              QtyStepper(
+                value: widget.row.qty,
+                onChanged: (n) =>
+                    widget.onChanged(widget.row.copyWith(qty: n)),
+              ),
+              const SizedBox(width: 4),
+              IconButton(
+                icon: const Icon(Icons.close, size: 14),
+                tooltip: widget.deleteTooltip,
+                onPressed: widget.onDelete,
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(maxHeight: 28, maxWidth: 28),
+                color: AppColors.textSecondary,
+              ),
+            ],
           ),
-        ],
-      ),
+        ),
+        // 메타 줄
+        _MetaLine(
+          colorPresetId: widget.row.colorPresetId,
+          grainDirection: widget.row.grainDirection,
+          labelCtrl: _labelCtrl,
+          hasLeading: widget.leading != null,
+          onLabelChanged: () =>
+              widget.onChanged(widget.row.copyWith(label: _labelCtrl.text)),
+        ),
+      ],
     );
   }
 
@@ -219,9 +273,123 @@ class _RowFieldState extends State<_RowField> {
           border: OutlineInputBorder(),
         ),
         // 매 입력마다 commit (provider의 debounced auto-save가 무거운 작업 흡수)
-        onChanged: (_) => _commit(),
-        onEditingComplete: _commit,
-        onSubmitted: (_) => _commit(),
+        onChanged: (_) => _commitDims(),
+        onEditingComplete: _commitDims,
+        onSubmitted: (_) => _commitDims(),
+      ),
+    );
+  }
+}
+
+/// 행의 메타 줄 — 색상 이름, 결방향, 라벨(인라인 편집).
+class _MetaLine extends ConsumerStatefulWidget {
+  const _MetaLine({
+    required this.colorPresetId,
+    required this.grainDirection,
+    required this.labelCtrl,
+    required this.hasLeading,
+    required this.onLabelChanged,
+  });
+  final String? colorPresetId;
+  final GrainDirection grainDirection;
+  final TextEditingController labelCtrl;
+  final bool hasLeading;
+  final VoidCallback onLabelChanged;
+
+  @override
+  ConsumerState<_MetaLine> createState() => _MetaLineState();
+}
+
+class _MetaLineState extends ConsumerState<_MetaLine> {
+  bool _editing = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final preset = widget.colorPresetId == null
+        ? null
+        : ref.watch(presetsProvider).colorById(widget.colorPresetId);
+
+    final colorText = preset?.name ?? '자동';
+    final colorStyle = preset != null
+        ? const TextStyle(
+            fontSize: 11,
+            color: AppColors.textPrimary,
+            fontWeight: FontWeight.w500,
+          )
+        : const TextStyle(
+            fontSize: 11,
+            color: AppColors.textSecondary,
+            fontStyle: FontStyle.italic,
+          );
+
+    final grainIcon = switch (widget.grainDirection) {
+      GrainDirection.lengthwise =>
+        const Icon(Icons.swap_horiz, size: 12, color: AppColors.textSecondary),
+      GrainDirection.widthwise =>
+        const Icon(Icons.swap_vert, size: 12, color: AppColors.textSecondary),
+      GrainDirection.none => null,
+    };
+
+    // leading swatch가 있는 경우 (parts) 들여쓰기로 정렬, 없으면(stocks) 0.
+    final leftPad = widget.hasLeading ? 32.0 : 0.0;
+
+    return Padding(
+      padding: EdgeInsets.only(left: leftPad, top: 1, bottom: 4),
+      child: Row(
+        children: [
+          Text(colorText, style: colorStyle),
+          const SizedBox(width: 6),
+          if (grainIcon != null) ...[
+            grainIcon,
+            const SizedBox(width: 4),
+          ],
+          const Text('·',
+              style:
+                  TextStyle(fontSize: 11, color: AppColors.textSecondary)),
+          const SizedBox(width: 6),
+          Expanded(
+            child: _editing
+                ? SizedBox(
+                    height: 22,
+                    child: TextField(
+                      controller: widget.labelCtrl,
+                      autofocus: true,
+                      style: const TextStyle(fontSize: 11),
+                      decoration: const InputDecoration(
+                        isDense: true,
+                        contentPadding:
+                            EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                        border: OutlineInputBorder(),
+                      ),
+                      onSubmitted: (_) {
+                        widget.onLabelChanged();
+                        if (mounted) setState(() => _editing = false);
+                      },
+                      onEditingComplete: () {
+                        widget.onLabelChanged();
+                        if (mounted) setState(() => _editing = false);
+                      },
+                    ),
+                  )
+                : InkWell(
+                    onTap: () => setState(() => _editing = true),
+                    child: Text(
+                      widget.labelCtrl.text.isEmpty
+                          ? '라벨 추가...'
+                          : widget.labelCtrl.text,
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: widget.labelCtrl.text.isEmpty
+                            ? AppColors.textSecondary
+                            : AppColors.textPrimary,
+                        fontStyle: widget.labelCtrl.text.isEmpty
+                            ? FontStyle.italic
+                            : FontStyle.normal,
+                      ),
+                    ),
+                  ),
+          ),
+        ],
       ),
     );
   }

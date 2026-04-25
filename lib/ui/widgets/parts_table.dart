@@ -32,6 +32,8 @@ class PartsTable extends ConsumerWidget {
                     width: p.width,
                     qty: p.qty,
                     label: p.label,
+                    colorPresetId: p.colorPresetId,
+                    grainDirection: p.grainDirection,
                   ))
               .toList(),
           leadingBuilder: (ctx, i) {

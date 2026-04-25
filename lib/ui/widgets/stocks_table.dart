@@ -31,6 +31,8 @@ class StocksTable extends ConsumerWidget {
                     width: s.width,
                     qty: s.qty,
                     label: s.label,
+                    colorPresetId: s.colorPresetId,
+                    grainDirection: s.grainDirection,
                   ))
               .toList(),
           leadingBuilder: (ctx, i) {
