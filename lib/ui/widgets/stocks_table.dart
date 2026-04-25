@@ -51,24 +51,17 @@ class StocksTable extends ConsumerWidget {
             );
           },
           onChanged: (rows) {
-            // 기존 색상/결방향 보존
-            final next = <StockSheet>[];
-            for (final r in rows) {
-              final existing =
-                  project.stocks.where((s) => s.id == r.id).toList();
-              next.add(StockSheet(
-                id: r.id,
-                length: r.length,
-                width: r.width,
-                qty: r.qty,
-                label: r.label,
-                colorPresetId:
-                    existing.isNotEmpty ? existing.first.colorPresetId : null,
-                grainDirection: existing.isNotEmpty
-                    ? existing.first.grainDirection
-                    : GrainDirection.none,
-              ));
-            }
+            final next = rows
+                .map((r) => StockSheet(
+                      id: r.id,
+                      length: r.length,
+                      width: r.width,
+                      qty: r.qty,
+                      label: r.label,
+                      colorPresetId: r.colorPresetId,
+                      grainDirection: r.grainDirection,
+                    ))
+                .toList();
             ref.read(tabsProvider).updateStocks(activeId, next);
           },
           newId: () => 's${DateTime.now().microsecondsSinceEpoch}',

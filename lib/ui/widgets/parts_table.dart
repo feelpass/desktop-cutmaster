@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../domain/models/cut_part.dart';
-import '../../domain/models/stock_sheet.dart' show GrainDirection;
 import '../../l10n/app_localizations.dart';
 import '../providers/tabs_provider.dart';
 import '../utils/part_color.dart';
@@ -52,23 +51,17 @@ class PartsTable extends ConsumerWidget {
             );
           },
           onChanged: (rows) {
-            // 기존 색상 보존하면서 dimension/label만 갱신
-            final next = <CutPart>[];
-            for (final r in rows) {
-              final existing = project.parts.where((p) => p.id == r.id).toList();
-              next.add(CutPart(
-                id: r.id,
-                length: r.length,
-                width: r.width,
-                qty: r.qty,
-                label: r.label,
-                colorPresetId:
-                    existing.isNotEmpty ? existing.first.colorPresetId : null,
-                grainDirection: existing.isNotEmpty
-                    ? existing.first.grainDirection
-                    : GrainDirection.none,
-              ));
-            }
+            final next = rows
+                .map((r) => CutPart(
+                      id: r.id,
+                      length: r.length,
+                      width: r.width,
+                      qty: r.qty,
+                      label: r.label,
+                      colorPresetId: r.colorPresetId,
+                      grainDirection: r.grainDirection,
+                    ))
+                .toList();
             ref.read(tabsProvider).updateParts(activeId, next);
           },
           newId: () => 'p${DateTime.now().microsecondsSinceEpoch}',
