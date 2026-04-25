@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:collection/collection.dart';
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 
@@ -49,8 +50,11 @@ class TabsNotifier extends ChangeNotifier {
   List<TabState> _tabs = [];
   String? _activeId;
   final Map<String, Timer> _saveTimers = {};
+  final Map<String, Future<String?>> _saveAsInFlight = {};
+  int _idCounter = 0;
+  bool _disposed = false;
 
-  List<TabState> get state => List.unmodifiable(_tabs);
+  List<TabState> get tabs => List.unmodifiable(_tabs);
   String? get activeId => _activeId;
   TabState? get active =>
       _tabs.firstWhereOrNull((t) => t.id == _activeId);
@@ -58,14 +62,19 @@ class TabsNotifier extends ChangeNotifier {
   // === Tab lifecycle ===
 
   void newUntitled() {
-    final id = _uuid();
-    final p0 = Project.create(id: id, name: '새 프로젝트');
-    _tabs = [..._tabs, TabState(id: id, filePath: null, project: p0, isDirty: false)];
-    _activeId = id;
+    if (_disposed) return;
+    final tabId = _newTabId();
+    final p0 = Project.create(id: _newProjectId(), name: '새 프로젝트');
+    _tabs = [
+      ..._tabs,
+      TabState(id: tabId, filePath: null, project: p0, isDirty: false),
+    ];
+    _activeId = tabId;
     notifyListeners();
   }
 
   Future<void> openFile(String path) async {
+    if (_disposed) return;
     final existing = _tabs.firstWhereOrNull((t) => t.filePath == path);
     if (existing != null) {
       _activeId = existing.id;
@@ -73,17 +82,20 @@ class TabsNotifier extends ChangeNotifier {
       return;
     }
     final project = await files.read(path);
-    final id = _uuid();
+    if (_disposed) return;
+    final id = _newTabId();
     _tabs = [
       ..._tabs,
       TabState(id: id, filePath: path, project: project, isDirty: false),
     ];
     _activeId = id;
     await workspace.touchRecentFile(path, project.name);
+    if (_disposed) return;
     notifyListeners();
   }
 
   void setActive(String id) {
+    if (_disposed) return;
     if (_tabs.any((t) => t.id == id)) {
       _activeId = id;
       notifyListeners();
@@ -91,6 +103,7 @@ class TabsNotifier extends ChangeNotifier {
   }
 
   Future<void> closeTab(String id) async {
+    if (_disposed) return;
     final tab = _tabs.firstWhereOrNull((t) => t.id == id);
     if (tab == null) return;
     _saveTimers.remove(id)?.cancel();
@@ -106,6 +119,7 @@ class TabsNotifier extends ChangeNotifier {
       displayName: tab.project.name,
       closedAt: DateTime.now(),
     ));
+    if (_disposed) return;
 
     _tabs = _tabs.where((t) => t.id != id).toList();
     if (_activeId == id) {
@@ -115,6 +129,7 @@ class TabsNotifier extends ChangeNotifier {
   }
 
   Future<void> reorder(int oldIndex, int newIndex) async {
+    if (_disposed) return;
     if (newIndex > oldIndex) newIndex -= 1;
     final list = [..._tabs];
     final t = list.removeAt(oldIndex);
@@ -147,6 +162,7 @@ class TabsNotifier extends ChangeNotifier {
       id, (t) => t.copyWith(project: t.project.copyWith(useSingleSheet: v)));
 
   void _patch(String id, TabState Function(TabState) f) {
+    if (_disposed) return;
     _tabs = _tabs.map((t) {
       if (t.id != id) return t;
       return f(t).copyWith(isDirty: true);
@@ -157,10 +173,19 @@ class TabsNotifier extends ChangeNotifier {
 
   // === Persistence ===
 
-  Future<String?> saveAs(String id, {String? overrideName}) async {
+  Future<String?> saveAs(String id, {String? overrideName}) {
+    final existing = _saveAsInFlight[id];
+    if (existing != null) return existing;
+    final future = _doSaveAs(id, overrideName: overrideName);
+    _saveAsInFlight[id] = future;
+    future.whenComplete(() => _saveAsInFlight.remove(id));
+    return future;
+  }
+
+  Future<String?> _doSaveAs(String id, {String? overrideName}) async {
+    _saveTimers.remove(id)?.cancel();
     final tab = _tabs.firstWhereOrNull((t) => t.id == id);
     if (tab == null) return null;
-    _saveTimers.remove(id)?.cancel();
 
     if (tab.filePath != null) {
       await files.overwrite(tab.filePath!, tab.project);
@@ -200,6 +225,7 @@ class TabsNotifier extends ChangeNotifier {
         tab.project,
       );
     }
+    if (_disposed) return;
     _setTab(id, (t) => t.copyWith(isDirty: false));
   }
 
@@ -211,28 +237,24 @@ class TabsNotifier extends ChangeNotifier {
   }
 
   void _setTab(String id, TabState Function(TabState) f) {
+    if (_disposed) return;
     _tabs = _tabs.map((t) => t.id == id ? f(t) : t).toList();
     notifyListeners();
   }
 
-  String _uuid() =>
-      '${DateTime.now().microsecondsSinceEpoch}_${_tabs.length}';
+  String _newTabId() =>
+      't_${DateTime.now().millisecondsSinceEpoch}_${_idCounter++}';
+
+  String _newProjectId() =>
+      'p_${DateTime.now().millisecondsSinceEpoch}_${_idCounter++}';
 
   @override
   void dispose() {
+    _disposed = true;
     for (final t in _saveTimers.values) {
       t.cancel();
     }
     _saveTimers.clear();
     super.dispose();
-  }
-}
-
-extension _FirstWhereOrNull<E> on Iterable<E> {
-  E? firstWhereOrNull(bool Function(E) test) {
-    for (final e in this) {
-      if (test(e)) return e;
-    }
-    return null;
   }
 }

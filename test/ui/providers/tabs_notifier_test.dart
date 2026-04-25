@@ -36,29 +36,29 @@ void main() {
 
   test('newUntitled appends a tab with no filePath, isDirty=false', () {
     notifier.newUntitled();
-    expect(notifier.state.length, 1);
-    expect(notifier.state.first.filePath, null);
-    expect(notifier.state.first.isDirty, false);
+    expect(notifier.tabs.length, 1);
+    expect(notifier.tabs.first.filePath, null);
+    expect(notifier.tabs.first.isDirty, false);
   });
 
   test('updateName marks dirty and updates project.name', () async {
     notifier.newUntitled();
-    final id = notifier.state.first.id;
+    final id = notifier.tabs.first.id;
     notifier.updateName(id, '책장');
-    expect(notifier.state.first.project.name, '책장');
-    expect(notifier.state.first.isDirty, true);
+    expect(notifier.tabs.first.project.name, '책장');
+    expect(notifier.tabs.first.isDirty, true);
   });
 
   test('saveAs writes file, clears autosave, registers recent', () async {
     notifier.newUntitled();
-    final id = notifier.state.first.id;
+    final id = notifier.tabs.first.id;
     notifier.updateName(id, '책장');
     final path = await notifier.saveAs(id);
 
     expect(path, p.join(tmp.path, '책장.cutmaster'));
     expect(File(path!).existsSync(), true);
 
-    final tab = notifier.state.first;
+    final tab = notifier.tabs.first;
     expect(tab.filePath, path);
     expect(tab.isDirty, false);
 
@@ -68,26 +68,74 @@ void main() {
 
   test('openFile focuses existing tab if path already open', () async {
     notifier.newUntitled();
-    final id = notifier.state.first.id;
+    final id = notifier.tabs.first.id;
     notifier.updateName(id, '책장');
     final path = await notifier.saveAs(id);
 
     notifier.newUntitled(); // 탭 2개
-    expect(notifier.state.length, 2);
+    expect(notifier.tabs.length, 2);
 
     await notifier.openFile(path!);
-    expect(notifier.state.length, 2);
+    expect(notifier.tabs.length, 2);
     expect(notifier.activeId, id);
   });
 
   test('closeTab removes tab and pushes to closed_tab', () async {
     notifier.newUntitled();
-    final id = notifier.state.first.id;
+    final id = notifier.tabs.first.id;
     await notifier.closeTab(id);
-    expect(notifier.state, isEmpty);
+    expect(notifier.tabs, isEmpty);
 
     final closed = await ws.listClosedTabs();
     expect(closed.length, 1);
     expect(closed.first.tabId, id);
+  });
+
+  test('setActive on unknown id is a no-op', () {
+    notifier.newUntitled();
+    final id = notifier.activeId;
+    notifier.setActive('does-not-exist');
+    expect(notifier.activeId, id);
+  });
+
+  test('updateName triggers autosave for untitled tab', () async {
+    notifier.newUntitled();
+    final id = notifier.tabs.first.id;
+    notifier.updateName(id, '책장');
+    await Future<void>.delayed(const Duration(milliseconds: 20));
+    final autosavePath = p.join(tmp.path, 'autosave', '$id.cutmaster');
+    expect(File(autosavePath).existsSync(), true);
+  });
+
+  test('closeTab on active moves focus to neighbor', () async {
+    notifier.newUntitled();
+    final first = notifier.tabs.first.id;
+    notifier.newUntitled();
+    final second = notifier.tabs.last.id;
+    expect(notifier.activeId, second);
+    await notifier.closeTab(second);
+    expect(notifier.activeId, first);
+  });
+
+  test('openFile reads project from disk into a new tab', () async {
+    notifier.newUntitled();
+    final id = notifier.tabs.first.id;
+    notifier.updateName(id, '책장');
+    final path = await notifier.saveAs(id);
+    notifier.newUntitled(); // 2 tabs
+    await notifier.closeTab(id); // close the saved one (now 1 untitled)
+    expect(notifier.tabs.length, 1);
+    await notifier.openFile(path!);
+    expect(notifier.tabs.length, 2);
+    expect(notifier.tabs.last.project.name, '책장');
+  });
+
+  test('flushAll persists pending dirty edits immediately', () async {
+    notifier.newUntitled();
+    final id = notifier.tabs.first.id;
+    notifier.updateName(id, '책장');
+    expect(notifier.tabs.first.isDirty, true);
+    await notifier.flushAll();
+    expect(notifier.tabs.first.isDirty, false);
   });
 }
