@@ -102,7 +102,10 @@ void main() {
     expect(notifier.tabs.first.filePath, null);
   });
 
-  testWidgets('drag reorder updates tab order', (t) async {
+  testWidgets('notifier.reorder is wired up to update tab order', (t) async {
+    // We don't gesture-simulate the drag: ReorderableListView widget tests
+    // with tester.drag are notoriously flaky for reorder. Instead, we verify
+    // the wiring path (onReorder -> notifier.reorder) is connected.
     notifier.newUntitled();
     final firstId = notifier.tabs[0].id;
     notifier.newUntitled();

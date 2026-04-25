@@ -17,9 +17,11 @@ class CutmasterTabBar extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // listen for any tab change; callbacks use the same instance
     final notifier = ref.watch(tabsProvider);
     final tabs = notifier.tabs;
     final activeId = notifier.activeId;
+    // perf TODO: 탭이 매우 많아지면 (e.g. 50+) per-tab family provider로 분리
 
     return Container(
       color: AppColors.header,
