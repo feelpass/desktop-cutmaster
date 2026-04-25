@@ -89,6 +89,17 @@ class TabsNotifier extends ChangeNotifier {
     _lastConflict = null;
   }
 
+  final StreamController<String> _noticesCtrl =
+      StreamController<String>.broadcast();
+
+  /// 사용자에게 알릴 메시지 (SnackBar 등에 띄움).
+  Stream<String> get notices => _noticesCtrl.stream;
+
+  void _notify(String msg) {
+    if (_disposed) return;
+    if (!_noticesCtrl.isClosed) _noticesCtrl.add(msg);
+  }
+
   List<TabState> get tabs => List.unmodifiable(_tabs);
   String? get activeId => _activeId;
   TabState? get active =>
@@ -478,6 +489,7 @@ class TabsNotifier extends ChangeNotifier {
         'tab "$id" forked due to mtime conflict: $originalPath '
         '(expected ${e.expected}, found ${e.found}) -> $forkPath',
       );
+      _notify('${tab.project.name}이 외부에서 변경되어 "충돌 사본"으로 분기 저장됨');
       notifyListeners();
     } catch (err) {
       debugPrint('fork-on-conflict failed for tab "$id": $err');
@@ -509,7 +521,10 @@ class TabsNotifier extends ChangeNotifier {
           mtime = res.mtime;
         } else {
           final autosavePath = p.join(autosaveDir, '${r.id}.cutmaster');
-          if (!File(autosavePath).existsSync()) continue; // 고아 — 스킵
+          if (!File(autosavePath).existsSync()) {
+            _notify('${r.displayName}을 찾을 수 없어요');
+            continue; // 고아 — 스킵
+          }
           // autosave는 충돌 검사 대상이 아니므로 mtime은 보관하지 않는다.
           pr = await files.read(autosavePath);
         }
@@ -521,8 +536,9 @@ class TabsNotifier extends ChangeNotifier {
           mtime: mtime,
         ));
         if (r.isActive) activeId = r.id;
-      } catch (_) {
+      } catch (e) {
         // 손상 / 권한 — 그 탭만 스킵
+        _notify('${r.displayName}을 열 수 없어요: $e');
       }
     }
     if (_disposed) return;
@@ -608,6 +624,7 @@ class TabsNotifier extends ChangeNotifier {
       t.cancel();
     }
     _saveTimers.clear();
+    _noticesCtrl.close();
     super.dispose();
   }
 }

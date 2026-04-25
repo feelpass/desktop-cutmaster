@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -10,11 +12,38 @@ import 'widgets/right_pane.dart';
 import 'widgets/save_as_dialog.dart';
 import 'widgets/top_bar.dart';
 
-class MainScreen extends ConsumerWidget {
+class MainScreen extends ConsumerStatefulWidget {
   const MainScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<MainScreen> createState() => _MainScreenState();
+}
+
+class _MainScreenState extends ConsumerState<MainScreen> {
+  StreamSubscription<String>? _noticesSub;
+
+  @override
+  void initState() {
+    super.initState();
+    final notifier = ref.read(tabsProvider);
+    _noticesSub = notifier.notices.listen(_showNotice);
+  }
+
+  @override
+  void dispose() {
+    _noticesSub?.cancel();
+    super.dispose();
+  }
+
+  void _showNotice(String msg) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(msg), duration: const Duration(seconds: 4)),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Shortcuts(
       shortcuts: const <ShortcutActivator, Intent>{
         SingleActivator(LogicalKeyboardKey.keyN, meta: true): _NewIntent(),

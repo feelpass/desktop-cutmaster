@@ -309,4 +309,49 @@ void main() {
     expect(notifier.lastConflict!.originalPath, path);
     expect(notifier.lastConflict!.forkPath, tab.filePath);
   });
+
+  test('notices stream emits on corrupt restore', () async {
+    // setup: write a corrupt file + register as a tab
+    final badPath = p.join(tmp.path, 'bad.cutmaster');
+    await File(badPath).writeAsString('not json');
+    await ws.upsertTab(TabRow(
+      id: 'bad',
+      filePath: badPath,
+      displayName: '나쁜',
+      position: 0,
+      isActive: true,
+    ));
+
+    final received = <String>[];
+    final sub = notifier.notices.listen(received.add);
+
+    await notifier.restoreSession();
+    // give the broadcast stream a tick to deliver
+    await Future<void>.delayed(const Duration(milliseconds: 10));
+
+    expect(received.length, greaterThanOrEqualTo(1));
+    expect(received.any((m) => m.contains('나쁜')), true);
+
+    await sub.cancel();
+  });
+
+  test('notices stream emits on conflict fork', () async {
+    notifier.newUntitled();
+    final id = notifier.tabs.first.id;
+    notifier.updateName(id, '책장');
+    final path = await notifier.saveAs(id);
+
+    final received = <String>[];
+    final sub = notifier.notices.listen(received.add);
+
+    await Future<void>.delayed(const Duration(milliseconds: 2100));
+    await File(path!).writeAsString('{"schemaVersion":1,"id":"x","name":"외부"}');
+    notifier.updateKerf(id, 9);
+    await notifier.flushAll();
+    await Future<void>.delayed(const Duration(milliseconds: 10));
+
+    expect(received.any((m) => m.contains('충돌 사본')), true);
+
+    await sub.cancel();
+  });
 }
