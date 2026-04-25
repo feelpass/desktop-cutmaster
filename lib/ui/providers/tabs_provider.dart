@@ -329,6 +329,45 @@ class TabsNotifier extends ChangeNotifier {
     }
   }
 
+  /// 가장 최근에 닫힌 탭을 다시 연다. 파일이면 그 경로로, untitled이면
+  /// autosave 파일에서 복원. 복원 후 closed_tab row는 제거된 상태.
+  Future<bool> reopenLastClosed() async {
+    if (_disposed) return false;
+    final row = await workspace.popLastClosedTab();
+    if (row == null) return false;
+
+    try {
+      if (row.filePath != null && File(row.filePath!).existsSync()) {
+        await openFile(row.filePath!);
+        return true;
+      }
+      if (row.autosavePath != null && File(row.autosavePath!).existsSync()) {
+        final project = await files.read(row.autosavePath!);
+        if (_disposed) return true;
+        final id = _newTabId();
+        _tabs = [
+          ..._tabs,
+          TabState(id: id, filePath: null, project: project, isDirty: true),
+        ];
+        _activeId = id;
+        notifyListeners();
+        _scheduleSave(id);
+        return true;
+      }
+    } catch (_) {
+      // 손상 / 권한 — 그냥 무시
+    }
+    return false;
+  }
+
+  void cycleNext() {
+    if (_disposed || _tabs.isEmpty) return;
+    final idx = _tabs.indexWhere((t) => t.id == _activeId);
+    final next = (idx + 1) % _tabs.length;
+    _activeId = _tabs[next].id;
+    notifyListeners();
+  }
+
   void _setTab(String id, TabState Function(TabState) f) {
     if (_disposed) return;
     _tabs = _tabs.map((t) => t.id == id ? f(t) : t).toList();

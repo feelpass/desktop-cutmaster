@@ -183,4 +183,54 @@ void main() {
     expect(notifier.tabs.first.filePath, path);
     expect(notifier.tabs.first.project.name, '책장');
   });
+
+  test('cycleNext rotates active id through tabs', () {
+    notifier.newUntitled();
+    final id1 = notifier.tabs[0].id;
+    notifier.newUntitled();
+    final id2 = notifier.tabs[1].id;
+
+    expect(notifier.activeId, id2);
+    notifier.cycleNext();
+    expect(notifier.activeId, id1);
+    notifier.cycleNext();
+    expect(notifier.activeId, id2);
+  });
+
+  test('reopenLastClosed restores a saved tab from filePath', () async {
+    notifier.newUntitled();
+    final id = notifier.tabs.first.id;
+    notifier.updateName(id, '책장');
+    final path = await notifier.saveAs(id);
+
+    await notifier.closeTab(id);
+    expect(notifier.tabs, isEmpty);
+
+    final reopened = await notifier.reopenLastClosed();
+    expect(reopened, true);
+    expect(notifier.tabs.length, 1);
+    expect(notifier.tabs.first.filePath, path);
+    expect(notifier.tabs.first.project.name, '책장');
+  });
+
+  test('reopenLastClosed restores untitled tab from autosave', () async {
+    notifier.newUntitled();
+    final id = notifier.tabs.first.id;
+    notifier.updateName(id, '메모');
+    await notifier.flushAll(); // autosave 파일 만들기
+
+    await notifier.closeTab(id);
+    expect(notifier.tabs, isEmpty);
+
+    final reopened = await notifier.reopenLastClosed();
+    expect(reopened, true);
+    expect(notifier.tabs.length, 1);
+    expect(notifier.tabs.first.filePath, null);
+    expect(notifier.tabs.first.project.name, '메모');
+  });
+
+  test('reopenLastClosed returns false when no closed tabs', () async {
+    final result = await notifier.reopenLastClosed();
+    expect(result, false);
+  });
 }
