@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
@@ -42,26 +43,39 @@ class PresetRepository {
     return p.join(cm.path, 'presets.json');
   }
 
+  /// presets.json을 읽어 [PresetState]를 반환한다. 절대 throw 하지 않는다 —
+  /// 파일 없음/JSON 손상 시 [PresetState.seeded]로 폴백한다. 한 카테고리 키만
+  /// 빠지거나 타입이 잘못된 경우 그 카테고리만 seed로 폴백한다 (다른 카테고리
+  /// 사용자 데이터는 유지).
   Future<PresetState> load() async {
     final path = await _resolvePath();
-    final f = File(path);
-    if (!f.existsSync()) return PresetState.seeded;
+    final file = File(path);
+    if (!file.existsSync()) return PresetState.seeded;
     try {
-      final raw = await f.readAsString();
-      final j = jsonDecode(raw) as Map<String, dynamic>;
+      final raw = await file.readAsString();
+      final json = jsonDecode(raw) as Map<String, dynamic>;
+      final colorsRaw = json['colorPresets'];
+      final partsRaw = json['partPresets'];
+      final stocksRaw = json['stockPresets'];
       return PresetState(
-        colors: (j['colorPresets'] as List? ?? [])
-            .map((e) => ColorPreset.fromJson(e as Map<String, dynamic>))
-            .toList(),
-        parts: (j['partPresets'] as List? ?? [])
-            .map((e) => DimensionPreset.fromJson(e as Map<String, dynamic>))
-            .toList(),
-        stocks: (j['stockPresets'] as List? ?? [])
-            .map((e) => DimensionPreset.fromJson(e as Map<String, dynamic>))
-            .toList(),
+        colors: colorsRaw is List
+            ? colorsRaw
+                .map((e) => ColorPreset.fromJson(e as Map<String, dynamic>))
+                .toList()
+            : seedColorPresets,
+        parts: partsRaw is List
+            ? partsRaw
+                .map((e) => DimensionPreset.fromJson(e as Map<String, dynamic>))
+                .toList()
+            : seedPartPresets,
+        stocks: stocksRaw is List
+            ? stocksRaw
+                .map((e) => DimensionPreset.fromJson(e as Map<String, dynamic>))
+                .toList()
+            : seedStockPresets,
       );
-    } catch (_) {
-      // JSON 손상/스키마 불일치 등 어떤 예외든 seed로 fallback.
+    } catch (e, st) {
+      debugPrint('PresetRepository.load fallback: $e\n$st');
       return PresetState.seeded;
     }
   }

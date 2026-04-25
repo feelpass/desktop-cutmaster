@@ -47,4 +47,56 @@ void main() {
     final state = await repo.load();
     expect(state.colors, seedColorPresets); // fallback
   });
+
+  test('load with empty JSON object falls back to seeds (no silent data loss)', () async {
+    final path = p.join(tmp.path, 'presets.json');
+    File(path).writeAsStringSync('{}');
+    final repo = PresetRepository(filePath: path);
+    final state = await repo.load();
+    expect(state.colors, seedColorPresets);
+    expect(state.parts, seedPartPresets);
+    expect(state.stocks, seedStockPresets);
+  });
+
+  test('load with only colorPresets present keeps user colors but seeds parts/stocks', () async {
+    final path = p.join(tmp.path, 'presets.json');
+    File(path).writeAsStringSync('''
+{
+  "version": 1,
+  "colorPresets": [{"id": "cp_only", "name": "Only", "argb": 4294901760}]
+}
+''');
+    final repo = PresetRepository(filePath: path);
+    final state = await repo.load();
+    expect(state.colors.length, 1);
+    expect(state.colors.first.id, 'cp_only');
+    // parts and stocks were missing — fall back to seeds, not empty
+    expect(state.parts, seedPartPresets);
+    expect(state.stocks, seedStockPresets);
+  });
+
+  test('save then save again overwrites existing file (no rename failure)', () async {
+    final path = p.join(tmp.path, 'presets.json');
+    final repo = PresetRepository(filePath: path);
+
+    await repo.save(const PresetState(
+      colors: [ColorPreset(id: 'cp_a', name: 'A', argb: 0xFF111111)],
+      parts: [],
+      stocks: [],
+    ));
+    expect(File(path).existsSync(), true);
+
+    await repo.save(const PresetState(
+      colors: [ColorPreset(id: 'cp_b', name: 'B', argb: 0xFF222222)],
+      parts: [],
+      stocks: [],
+    ));
+
+    final state = await repo.load();
+    expect(state.colors.single.id, 'cp_b');
+
+    // .tmp leftover check
+    final leftovers = tmp.listSync().where((f) => f.path.endsWith('.tmp'));
+    expect(leftovers, isEmpty);
+  });
 }
