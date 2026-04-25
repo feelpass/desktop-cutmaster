@@ -14,17 +14,28 @@ import '../../domain/models/stock_sheet.dart';
 /// - stock_sheet_library: 자재 라이브러리 (재사용 가능한 자재 정의)
 class ProjectDb {
   final Database _db;
-  ProjectDb._(this._db);
 
-  static Future<ProjectDb> openInMemory() async {
+  /// v1 row의 `color: int` (ARGB) → ColorPreset.id 매핑을 담당.
+  /// `.cutmaster` 파일 경로와 마찬가지로 호출자가 PresetRepository 기반으로
+  /// 주입한다. null이면 마이그레이션 없이 그대로 로드된다.
+  final String? Function(int argb)? colorMatcher;
+
+  ProjectDb._(this._db, {this.colorMatcher});
+
+  static Future<ProjectDb> openInMemory({
+    String? Function(int argb)? colorMatcher,
+  }) async {
     final db = await databaseFactory.openDatabase(
       inMemoryDatabasePath,
       options: OpenDatabaseOptions(version: 1, onCreate: _onCreate),
     );
-    return ProjectDb._(db);
+    return ProjectDb._(db, colorMatcher: colorMatcher);
   }
 
-  static Future<ProjectDb> open(String path) async {
+  static Future<ProjectDb> open(
+    String path, {
+    String? Function(int argb)? colorMatcher,
+  }) async {
     final db = await databaseFactory.openDatabase(
       path,
       options: OpenDatabaseOptions(
@@ -33,7 +44,7 @@ class ProjectDb {
         onUpgrade: _onUpgrade,
       ),
     );
-    return ProjectDb._(db);
+    return ProjectDb._(db, colorMatcher: colorMatcher);
   }
 
   static Future<void> _onCreate(Database db, int version) async {
@@ -148,10 +159,12 @@ class ProjectDb {
       id: r['id'] as String,
       name: r['name'] as String,
       stocks: stocksJson
-          .map((j) => StockSheet.fromJson(j as Map<String, dynamic>))
+          .map((j) => StockSheet.fromJson(j as Map<String, dynamic>,
+              colorMatcher: colorMatcher))
           .toList(),
       parts: partsJson
-          .map((j) => CutPart.fromJson(j as Map<String, dynamic>))
+          .map((j) => CutPart.fromJson(j as Map<String, dynamic>,
+              colorMatcher: colorMatcher))
           .toList(),
       kerf: (r['kerf'] as num).toDouble(),
       grainLocked: r['grain_locked'] == 1,

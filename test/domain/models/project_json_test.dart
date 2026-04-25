@@ -26,7 +26,7 @@ void main() {
     );
 
     final json = orig.toJson();
-    expect(json['schemaVersion'], 1);
+    expect(json['schemaVersion'], 2);
 
     final back = Project.fromJson(json);
     expect(back.id, orig.id);

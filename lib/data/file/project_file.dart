@@ -28,6 +28,14 @@ class FileWithMtime {
 }
 
 class ProjectFileService {
+  /// [colorMatcher]는 v1 .cutmaster 파일을 읽을 때 사용. v1에는 `color: int`
+  /// (ARGB) 필드가 있었고, v2부터는 글로벌 ColorPreset id로 참조한다.
+  /// matcher는 ARGB → ColorPreset.id를 돌려주어야 한다 — null이면 색이 사라진다.
+  /// 호출자(보통 main.dart)가 PresetRepository를 들고 있다가 주입한다.
+  ProjectFileService({this.colorMatcher});
+
+  final String? Function(int argb)? colorMatcher;
+
   /// 같은 폴더 안에서 충돌 안 나는 경로를 만들어 [project]를 새 파일로 쓴다.
   /// 반환: 실제로 쓰인 절대 경로.
   Future<String> writeNew({
@@ -78,11 +86,12 @@ class ProjectFileService {
   }
 
   /// 파일에서 Project 로드. JSON / schemaVersion 손상 시 FormatException.
+  /// v1 파일은 [colorMatcher]를 통해 ARGB → ColorPreset id로 마이그레이션된다.
   Future<Project> read(String path) async {
     final raw = await File(path).readAsString();
     try {
       final j = jsonDecode(raw) as Map<String, dynamic>;
-      return Project.fromJson(j);
+      return Project.fromJson(j, colorMatcher: colorMatcher);
     } on FormatException {
       rethrow;
     } catch (e) {
