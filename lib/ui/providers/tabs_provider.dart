@@ -332,8 +332,3 @@ final activeTabIdProvider = Provider<String?>(
 final activeProjectProvider = Provider<Project?>(
   (ref) => ref.watch(tabsProvider).active?.project,
 );
-
-final recentFilesProvider = FutureProvider<List<RecentFileRow>>((ref) async {
-  final notifier = ref.watch(tabsProvider);
-  return notifier.workspace.listRecentFiles();
-});
