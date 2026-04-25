@@ -4,7 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../domain/models/cut_part.dart';
 import '../../domain/models/stock_sheet.dart' show GrainDirection;
 import '../../l10n/app_localizations.dart';
-import '../providers/preset_provider.dart';
 import '../providers/tabs_provider.dart';
 import '../utils/part_color.dart';
 import 'color_swatch_button.dart';
@@ -36,19 +35,11 @@ class PartsTable extends ConsumerWidget {
           entityId: p.id,
           colorPresetId: p.colorPresetId,
           palette: ColorPalette.part,
-          onChanged: (newArgb) {
+          onChanged: (newPresetId) {
             final updated = [...project.parts];
-            if (newArgb == null) {
-              updated[i] = p.copyWith(clearColor: true);
-            } else {
-              final presets = ref.read(presetsProvider);
-              final matched = presets.state.colors
-                  .where((c) => c.argb == newArgb)
-                  .toList();
-              updated[i] = matched.isNotEmpty
-                  ? p.copyWith(colorPresetId: matched.first.id)
-                  : p.copyWith(clearColor: true);
-            }
+            updated[i] = newPresetId == null
+                ? p.copyWith(clearColor: true)
+                : p.copyWith(colorPresetId: newPresetId);
             ref.read(tabsProvider).updateParts(activeId, updated);
           },
         );

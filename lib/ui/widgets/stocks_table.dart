@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../domain/models/stock_sheet.dart';
 import '../../l10n/app_localizations.dart';
-import '../providers/preset_provider.dart';
 import '../providers/tabs_provider.dart';
 import '../utils/part_color.dart';
 import 'color_swatch_button.dart';
@@ -39,19 +38,11 @@ class StocksTable extends ConsumerWidget {
               entityId: s.id,
               colorPresetId: s.colorPresetId,
               palette: ColorPalette.stock,
-              onChanged: (newArgb) {
+              onChanged: (newPresetId) {
                 final updated = [...project.stocks];
-                if (newArgb == null) {
-                  updated[i] = s.copyWith(clearColor: true);
-                } else {
-                  final presets = ref.read(presetsProvider);
-                  final matched = presets.state.colors
-                      .where((c) => c.argb == newArgb)
-                      .toList();
-                  updated[i] = matched.isNotEmpty
-                      ? s.copyWith(colorPresetId: matched.first.id)
-                      : s.copyWith(clearColor: true);
-                }
+                updated[i] = newPresetId == null
+                    ? s.copyWith(clearColor: true)
+                    : s.copyWith(colorPresetId: newPresetId);
                 ref.read(tabsProvider).updateStocks(activeId, updated);
               },
             );
