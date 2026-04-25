@@ -1,0 +1,50 @@
+{
+  "@@locale": "ko",
+  "appTitle": "합판 재단",
+  "calculate": "계산",
+  "save": "저장",
+  "settings": "설정",
+  "newProject": "새 프로젝트",
+  "parts": "부품",
+  "stockSheets": "자재",
+  "options": "옵션",
+  "kerf": "톱날 두께(mm)",
+  "lockGrain": "결방향 고정",
+  "showPartLabels": "부품 라벨 표시",
+  "useSingleSheet": "단일 시트 사용",
+  "emptyResultTitle": "자재와 부품을 입력하고",
+  "emptyResultAction": "▶ 계산 버튼을 눌러주세요",
+  "length": "가로",
+  "width": "세로",
+  "qty": "수량",
+  "label": "라벨",
+  "preset": "프리셋",
+  "efficiency": "효율",
+  "sheetUsed": "{n}장 사용",
+  "@sheetUsed": {
+    "placeholders": {
+      "n": {"type": "int"}
+    }
+  },
+  "partsCount": "{n}개 부품",
+  "@partsCount": {
+    "placeholders": {
+      "n": {"type": "int"}
+    }
+  },
+  "unplacedCount": "{n}개 미배치",
+  "@unplacedCount": {
+    "placeholders": {
+      "n": {"type": "int"}
+    }
+  },
+  "exportPng": "PNG 내보내기",
+  "materialUpdatedTitle": "자재가 변경되었습니다",
+  "materialUpdatedBody": "이 프로젝트도 변경된 자재로 다시 계산할까요?",
+  "yes": "예",
+  "no": "아니오",
+  "cancel": "취소",
+  "addRow": "행 추가",
+  "deleteRow": "행 삭제",
+  "clearAll": "전체 삭제"
+}
