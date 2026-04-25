@@ -7,12 +7,15 @@ import 'plus_button.dart';
 import 'tab_context_menu.dart';
 import 'tab_item.dart';
 
-/// 멀티 탭 워크스페이스 헤더. 가로 스크롤 + 끝에 [PlusButton].
+/// 멀티 탭 워크스페이스 헤더. 가로 스크롤 + 마지막 탭 바로 옆 [PlusButton].
 ///
 /// long-press로 드래그-정렬 가능. 짧은 tap은 그대로 자식([TabItem])에
 /// 전달되어 탭 활성화/닫기/이름 변경 등이 정상 동작한다
 /// ([ReorderableDelayedDragStartListener]가 long-press 이전까지 gesture
 /// arena claim을 미루기 때문).
+///
+/// PlusButton은 [ReorderableListView.builder.footer]로 들어가 reorder
+/// 대상에서 빠지면서도 크롬처럼 마지막 탭 바로 옆에 붙는다.
 class CutmasterTabBar extends ConsumerWidget {
   const CutmasterTabBar({super.key});
 
@@ -26,60 +29,54 @@ class CutmasterTabBar extends ConsumerWidget {
 
     return Container(
       color: AppColors.header,
-      child: Row(
-        children: [
-          Expanded(
-            // 데스크탑에서 가로 스크롤 영역에 자동으로 붙는 스크롤바가
-            // 탭 영역을 가리지 않도록 비활성화한다.
-            child: ScrollConfiguration(
-              behavior: const _NoScrollbarBehavior(),
-              child: ReorderableListView.builder(
-                scrollDirection: Axis.horizontal,
-                buildDefaultDragHandles: false,
-                onReorder: notifier.reorder,
-                itemCount: tabs.length,
-                itemBuilder: (ctx, i) {
-                  final tab = tabs[i];
-                  return ReorderableDelayedDragStartListener(
-                    key: ValueKey(tab.id),
-                    index: i,
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 2, vertical: 2),
-                      child: GestureDetector(
-                        behavior: HitTestBehavior.translucent,
-                        onSecondaryTapDown: (details) => showTabContextMenu(
-                          context: context,
-                          ref: ref,
-                          tabId: tab.id,
-                          position: details.globalPosition,
-                          onRename: () => showRenameDialog(
-                            context,
-                            ref,
-                            tab.id,
-                            tab.project.name,
-                          ),
-                        ),
-                        child: TabItem(
-                          displayName: tab.project.name,
-                          isActive: tab.id == activeId,
-                          isDirty: tab.isDirty,
-                          isUntitled: tab.filePath == null,
-                          onTap: () => notifier.setActive(tab.id),
-                          onClose: () => notifier.closeTab(tab.id),
-                          // untitled은 in-memory 이름, saved 탭은 파일까지 rename
-                          onRenameSubmit: (name) =>
-                              notifier.renameSavedFile(tab.id, name),
-                        ),
-                      ),
+      // 데스크탑에서 가로 스크롤 영역에 자동으로 붙는 스크롤바가
+      // 탭 영역을 가리지 않도록 비활성화한다.
+      child: ScrollConfiguration(
+        behavior: const _NoScrollbarBehavior(),
+        child: ReorderableListView.builder(
+          scrollDirection: Axis.horizontal,
+          buildDefaultDragHandles: false,
+          onReorder: notifier.reorder,
+          itemCount: tabs.length,
+          footer: const PlusButton(),
+          itemBuilder: (ctx, i) {
+            final tab = tabs[i];
+            return ReorderableDelayedDragStartListener(
+              key: ValueKey(tab.id),
+              index: i,
+              child: Padding(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 2, vertical: 2),
+                child: GestureDetector(
+                  behavior: HitTestBehavior.translucent,
+                  onSecondaryTapDown: (details) => showTabContextMenu(
+                    context: context,
+                    ref: ref,
+                    tabId: tab.id,
+                    position: details.globalPosition,
+                    onRename: () => showRenameDialog(
+                      context,
+                      ref,
+                      tab.id,
+                      tab.project.name,
                     ),
-                  );
-                },
+                  ),
+                  child: TabItem(
+                    displayName: tab.project.name,
+                    isActive: tab.id == activeId,
+                    isDirty: tab.isDirty,
+                    isUntitled: tab.filePath == null,
+                    onTap: () => notifier.setActive(tab.id),
+                    onClose: () => notifier.closeTab(tab.id),
+                    // untitled은 in-memory 이름, saved 탭은 파일까지 rename
+                    onRenameSubmit: (name) =>
+                        notifier.renameSavedFile(tab.id, name),
+                  ),
+                ),
               ),
-            ),
-          ),
-          const PlusButton(),
-        ],
+            );
+          },
+        ),
       ),
     );
   }

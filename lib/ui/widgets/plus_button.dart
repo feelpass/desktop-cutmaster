@@ -8,21 +8,30 @@ import '../../data/local/workspace_db.dart';
 import '../providers/tabs_provider.dart';
 import '../theme/app_colors.dart';
 
-/// 탭바 끝 + 버튼. 클릭 시 popup 메뉴: 새 프로젝트 / 파일에서 열기 / 최근 N개.
+/// 탭바 끝 + 버튼. 크롬 스타일로 마지막 탭 바로 옆에 탭 모양 버튼.
+/// 클릭 시 popup 메뉴: 새 프로젝트 / 파일에서 열기 / 최근 N개.
 class PlusButton extends ConsumerWidget {
   const PlusButton({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        key: const ValueKey('plus-button'),
-        onTap: () => _showMenu(context, ref),
-        borderRadius: BorderRadius.circular(4),
-        child: const Padding(
-          padding: EdgeInsets.all(6),
-          child: Icon(Icons.add, size: 18, color: AppColors.textOnHeader),
+    // TabItem과 동일한 외곽 패딩/높이/모서리로 탭 외관을 흉내낸다.
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 2),
+      child: Material(
+        color: Colors.white24,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(6)),
+        child: InkWell(
+          key: const ValueKey('plus-button'),
+          onTap: () => _showMenu(context, ref),
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(6)),
+          child: const SizedBox(
+            width: 36,
+            height: 36,
+            child: Center(
+              child: Icon(Icons.add, size: 18, color: AppColors.textOnHeader),
+            ),
+          ),
         ),
       ),
     );
