@@ -13,52 +13,70 @@ void main() {
     databaseFactory = databaseFactoryFfi;
   });
 
-  test('migrates each project to .cutmaster file and registers as recent', () async {
-    final tmp = await Directory.systemTemp.createTemp('mig_');
-    // 두 DB가 :memory: 같은 핸들을 공유하지 않도록 파일로 분리.
-    final legacy = await ProjectDb.open(p.join(tmp.path, 'legacy.db'));
-    final ws = await WorkspaceDb.open(p.join(tmp.path, 'workspace.db'));
-    final out = await Directory(p.join(tmp.path, 'out')).create();
+  late Directory tmp;
+  late Directory outDir;
+  late ProjectDb legacy;
+  late WorkspaceDb ws;
 
+  setUp(() async {
+    tmp = await Directory.systemTemp.createTemp('mig_');
+    outDir = await Directory(p.join(tmp.path, 'out')).create();
+    // 두 DB가 :memory: 같은 핸들을 공유하지 않도록 파일로 분리.
+    legacy = await ProjectDb.open(p.join(tmp.path, 'legacy.db'));
+    ws = await WorkspaceDb.open(p.join(tmp.path, 'workspace.db'));
+  });
+
+  tearDown(() async {
+    await legacy.close();
+    await ws.close();
+    if (tmp.existsSync()) await tmp.delete(recursive: true);
+  });
+
+  test('migrates each project to .cutmaster file and registers as recent', () async {
     await legacy.upsertProject(Project.create(id: 'a', name: '책장'));
     await legacy.upsertProject(Project.create(id: 'b', name: '책상'));
 
-    final result =
-        await LegacyMigrator(legacy: legacy, workspace: ws, targetFolder: out.path)
-            .run();
+    final result = await LegacyMigrator(
+            legacy: legacy, workspace: ws, targetFolder: outDir.path)
+        .run();
 
     expect(result.migrated, 2);
     expect(result.failed, 0);
-    expect(File('${out.path}/책장.cutmaster').existsSync(), true);
-    expect(File('${out.path}/책상.cutmaster').existsSync(), true);
+    expect(File('${outDir.path}/책장.cutmaster').existsSync(), true);
+    expect(File('${outDir.path}/책상.cutmaster').existsSync(), true);
 
     final recent = await ws.listRecentFiles();
     expect(recent.length, 2);
-
-    await legacy.close();
-    await ws.close();
-    await tmp.delete(recursive: true);
   });
 
   test('handles name collisions with (2) suffix', () async {
-    final tmp = await Directory.systemTemp.createTemp('mig_');
-    final legacy = await ProjectDb.open(p.join(tmp.path, 'legacy.db'));
-    final ws = await WorkspaceDb.open(p.join(tmp.path, 'workspace.db'));
-    final out = await Directory(p.join(tmp.path, 'out')).create();
-
     await legacy.upsertProject(Project.create(id: 'a', name: '책장'));
     await legacy.upsertProject(Project.create(id: 'b', name: '책장'));
 
-    final result =
-        await LegacyMigrator(legacy: legacy, workspace: ws, targetFolder: out.path)
-            .run();
+    final result = await LegacyMigrator(
+            legacy: legacy, workspace: ws, targetFolder: outDir.path)
+        .run();
 
     expect(result.migrated, 2);
-    expect(File('${out.path}/책장.cutmaster').existsSync(), true);
-    expect(File('${out.path}/책장 (2).cutmaster').existsSync(), true);
+    expect(File('${outDir.path}/책장.cutmaster').existsSync(), true);
+    expect(File('${outDir.path}/책장 (2).cutmaster').existsSync(), true);
+  });
 
-    await legacy.close();
-    await ws.close();
-    await tmp.delete(recursive: true);
+  test('does not modify the legacy DB', () async {
+    // setUp creates tmp, legacy, ws. We add projects, run migrator, assert legacy unchanged.
+    await legacy.upsertProject(Project.create(id: 'a', name: '책장'));
+    await legacy.upsertProject(Project.create(id: 'b', name: '책상'));
+
+    final beforeCount = (await legacy.listProjects()).length;
+    final beforeIds =
+        (await legacy.listProjects()).map((p) => p.id).toSet();
+
+    await LegacyMigrator(
+            legacy: legacy, workspace: ws, targetFolder: outDir.path)
+        .run();
+
+    final after = await legacy.listProjects();
+    expect(after.length, beforeCount);
+    expect(after.map((p) => p.id).toSet(), beforeIds);
   });
 }
