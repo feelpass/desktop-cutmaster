@@ -6,7 +6,7 @@ import 'package:path/path.dart' as p;
 import '../../domain/models/project.dart';
 
 const _ext = '.cutmaster';
-const _kForbidden = r'/\:*?"<>|';
+const _forbidden = r'/\:*?"<>|';
 
 class ProjectFileService {
   /// 같은 폴더 안에서 충돌 안 나는 경로를 만들어 [project]를 새 파일로 쓴다.
@@ -31,7 +31,10 @@ class ProjectFileService {
   /// 반환: 새 경로.
   Future<String> rename(String path, String newBaseName) async {
     final folder = p.dirname(path);
-    final newPath = await _resolveCollision(folder, newBaseName);
+    final clean = sanitizeBaseName(newBaseName);
+    final desiredPath = p.join(folder, '$clean$_ext');
+    if (desiredPath == path) return path;
+    final newPath = await _resolveCollision(folder, clean);
     if (newPath == path) return path;
     await File(path).rename(newPath);
     return newPath;
@@ -53,13 +56,14 @@ class ProjectFileService {
   /// 파일명으로 안전한 형태로 [name] 정규화 (금지 문자 제거).
   static String sanitizeBaseName(String name) {
     var s = name.trim();
-    for (final c in _kForbidden.split('')) {
+    for (final c in _forbidden.split('')) {
       s = s.replaceAll(c, '');
     }
     if (s.isEmpty) s = '새 프로젝트';
     return s;
   }
 
+  /// single-process assumption — caller-level uniqueness.
   Future<String> _resolveCollision(String folder, String baseName) async {
     final clean = sanitizeBaseName(baseName);
     var path = p.join(folder, '$clean$_ext');
@@ -72,6 +76,7 @@ class ProjectFileService {
     }
   }
 
+  /// single-writer assumption.
   Future<void> _atomicWrite(String path, Project project) async {
     final tmp = '$path.tmp';
     final raw = const JsonEncoder.withIndent('  ').convert(project.toJson());
