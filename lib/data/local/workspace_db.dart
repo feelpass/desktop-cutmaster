@@ -53,7 +53,11 @@ class WorkspaceDb {
   static Future<WorkspaceDb> _open(String path) async {
     final db = await databaseFactory.openDatabase(
       path,
-      options: OpenDatabaseOptions(version: 1, onCreate: _onCreate),
+      options: OpenDatabaseOptions(
+        version: 1,
+        onCreate: _onCreate,
+        onUpgrade: _onUpgrade,
+      ),
     );
     return WorkspaceDb._(db);
   }
@@ -84,6 +88,14 @@ class WorkspaceDb {
         closed_at TEXT NOT NULL
       )
     ''');
+    await db.execute(
+        'CREATE INDEX idx_recent_last_opened ON recent_file(last_opened_at DESC)');
+    await db.execute(
+        'CREATE INDEX idx_closed_at ON closed_tab(closed_at DESC)');
+  }
+
+  static Future<void> _onUpgrade(Database db, int from, int to) async {
+    // v2+ 마이그레이션은 여기에 추가
   }
 
   Future<void> close() => _db.close();
@@ -128,23 +140,26 @@ class WorkspaceDb {
   // === Recent files ===
 
   Future<void> touchRecentFile(String filePath, String displayName) async {
-    await _db.insert(
-      'recent_file',
-      {
-        'file_path': filePath,
-        'display_name': displayName,
-        'last_opened_at': DateTime.now().toIso8601String(),
-      },
-      conflictAlgorithm: ConflictAlgorithm.replace,
-    );
-    // LRU 20개 유지
-    final all = await _db.query('recent_file', orderBy: 'last_opened_at DESC');
-    if (all.length > 20) {
-      final toDelete = all.skip(20).map((r) => r['file_path']).toList();
-      for (final fp in toDelete) {
-        await _db.delete('recent_file', where: 'file_path = ?', whereArgs: [fp]);
-      }
-    }
+    await _db.transaction((tx) async {
+      await tx.insert(
+        'recent_file',
+        {
+          'file_path': filePath,
+          'display_name': displayName,
+          'last_opened_at': DateTime.now().toIso8601String(),
+        },
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+      // LRU 20개 유지
+      await tx.rawDelete('''
+        DELETE FROM recent_file
+        WHERE file_path NOT IN (
+          SELECT file_path FROM recent_file
+          ORDER BY last_opened_at DESC
+          LIMIT 20
+        )
+      ''');
+    });
   }
 
   Future<void> removeRecentFile(String filePath) =>
@@ -188,21 +203,27 @@ class WorkspaceDb {
     required int maxAgeDays,
     required int keepAtMost,
   }) async {
-    final cutoff = DateTime.now().subtract(Duration(days: maxAgeDays));
-    final removed = await _db.query('closed_tab',
-        where: 'closed_at < ?', whereArgs: [cutoff.toIso8601String()]);
-    await _db.delete('closed_tab',
-        where: 'closed_at < ?', whereArgs: [cutoff.toIso8601String()]);
+    final cutoffStr =
+        DateTime.now().subtract(Duration(days: maxAgeDays)).toIso8601String();
+    final removed = <Map<String, Object?>>[];
+    await _db.transaction((tx) async {
+      final aged = await tx.query('closed_tab',
+          where: 'closed_at < ?', whereArgs: [cutoffStr]);
+      removed.addAll(aged);
+      await tx.delete('closed_tab',
+          where: 'closed_at < ?', whereArgs: [cutoffStr]);
 
-    final remaining = await _db.query('closed_tab', orderBy: 'closed_at DESC');
-    if (remaining.length > keepAtMost) {
-      final overflow = remaining.skip(keepAtMost).toList();
-      for (final r in overflow) {
-        removed.add(r);
-        await _db.delete('closed_tab',
-            where: 'tab_id = ?', whereArgs: [r['tab_id']]);
+      final remaining =
+          await tx.query('closed_tab', orderBy: 'closed_at DESC');
+      if (remaining.length > keepAtMost) {
+        final overflow = remaining.skip(keepAtMost).toList();
+        for (final r in overflow) {
+          removed.add(r);
+          await tx.delete('closed_tab',
+              where: 'tab_id = ?', whereArgs: [r['tab_id']]);
+        }
       }
-    }
+    });
     return removed.map(_toClosedRow).toList();
   }
 

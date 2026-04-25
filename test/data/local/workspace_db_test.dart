@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:cutmaster/data/local/workspace_db.dart';
@@ -62,5 +64,70 @@ void main() {
     expect((await db.listClosedTabs()), isEmpty);
 
     await db.close();
+  });
+
+  test('deleteTab on missing id is no-op', () async {
+    final db = await WorkspaceDb.openInMemory();
+    await db.deleteTab('does-not-exist'); // 예외 없이 통과해야 함
+    expect((await db.listTabs()), isEmpty);
+    await db.close();
+  });
+
+  test('upsertTab with same id replaces existing row', () async {
+    final db = await WorkspaceDb.openInMemory();
+    await db.upsertTab(const TabRow(
+      id: 't1', filePath: '/a', displayName: 'a',
+      position: 0, isActive: false,
+    ));
+    await db.upsertTab(const TabRow(
+      id: 't1', filePath: '/b', displayName: 'b',
+      position: 0, isActive: true,
+    ));
+    final list = await db.listTabs();
+    expect(list.length, 1);
+    expect(list.first.filePath, '/b');
+    expect(list.first.isActive, true);
+    await db.close();
+  });
+
+  test('popLastClosedTab returns null when empty', () async {
+    final db = await WorkspaceDb.openInMemory();
+    expect(await db.popLastClosedTab(), isNull);
+    await db.close();
+  });
+
+  test('pruneClosedTabs trims by keepAtMost when nothing is old', () async {
+    final db = await WorkspaceDb.openInMemory();
+    final now = DateTime.now();
+    for (var i = 0; i < 5; i++) {
+      await db.pushClosedTab(ClosedTabRow(
+        tabId: 't$i', filePath: '/p$i', autosavePath: null,
+        displayName: 't$i',
+        closedAt: now.subtract(Duration(seconds: i)),
+      ));
+    }
+    final removed = await db.pruneClosedTabs(maxAgeDays: 30, keepAtMost: 3);
+    expect(removed.length, 2);
+    expect(removed.map((r) => r.tabId).toSet(), {'t3', 't4'});
+    expect((await db.listClosedTabs()).length, 3);
+    await db.close();
+  });
+
+  test('open(path) persists data across close/reopen', () async {
+    final tmp = await Directory.systemTemp.createTemp('ws_db_');
+    final dbPath = '${tmp.path}/workspace.db';
+    final db1 = await WorkspaceDb.open(dbPath);
+    await db1.upsertTab(const TabRow(
+      id: 't1', filePath: '/x', displayName: 'x',
+      position: 0, isActive: true,
+    ));
+    await db1.close();
+
+    final db2 = await WorkspaceDb.open(dbPath);
+    final list = await db2.listTabs();
+    expect(list.length, 1);
+    expect(list.first.id, 't1');
+    await db2.close();
+    await tmp.delete(recursive: true);
   });
 }
