@@ -11,8 +11,11 @@ import 'data/file/project_file.dart';
 import 'data/local/project_db.dart';
 import 'data/local/workspace_db.dart';
 import 'data/migration/legacy_to_files.dart';
+import 'data/preset/color_matcher.dart';
+import 'data/preset/preset_repository.dart';
 import 'l10n/app_localizations.dart';
 import 'ui/main_screen.dart';
+import 'ui/providers/preset_provider.dart';
 import 'ui/providers/tabs_provider.dart';
 import 'ui/theme/app_theme.dart';
 
@@ -29,6 +32,15 @@ Future<void> main() async {
   await Directory(projectsDir).create(recursive: true);
   await Directory(autosaveDir).create(recursive: true);
 
+  // 글로벌 프리셋을 먼저 로드. ProjectFileService / ProjectDb의 colorMatcher
+  // 클로저가 *호출 시점*의 프리셋 스냅샷을 보도록 하기 위해 notifier.state를 직접 참조한다
+  // (사용자가 레거시 파일을 열기 전에 프리셋을 편집한 경우에도 최신 목록 반영).
+  final presetRepo = PresetRepository();
+  final presetsNotifier = PresetsNotifier(presetRepo);
+  await presetsNotifier.load();
+  String? colorMatcher(int argb) =>
+      ColorMatcher(presetsNotifier.state.colors).match(argb);
+
   final ws = await WorkspaceDb.open(p.join(supportDir.path, 'workspace.db'));
 
   // 1회성 마이그레이션. 옛 cutmaster.db가 있고 워크스페이스에 등록된 최근 파일이
@@ -36,18 +48,20 @@ Future<void> main() async {
   final legacyPath = p.join(supportDir.path, 'cutmaster.db');
   if (File(legacyPath).existsSync() &&
       (await ws.listRecentFiles()).isEmpty) {
-    final legacy = await ProjectDb.open(legacyPath);
+    final legacy =
+        await ProjectDb.open(legacyPath, colorMatcher: colorMatcher);
     await LegacyMigrator(
       legacy: legacy,
       workspace: ws,
       targetFolder: projectsDir,
+      files: ProjectFileService(colorMatcher: colorMatcher),
     ).run();
     await legacy.close();
   }
 
   final notifier = TabsNotifier(
     workspace: ws,
-    files: ProjectFileService(),
+    files: ProjectFileService(colorMatcher: colorMatcher),
     autosaveDir: autosaveDir,
     defaultProjectsDir: projectsDir,
   );
@@ -55,7 +69,10 @@ Future<void> main() async {
   if (notifier.tabs.isEmpty) notifier.newUntitled();
 
   runApp(ProviderScope(
-    overrides: [tabsProvider.overrideWith((_) => notifier)],
+    overrides: [
+      tabsProvider.overrideWith((_) => notifier),
+      presetsProvider.overrideWith((_) => presetsNotifier),
+    ],
     child: const CutmasterApp(),
   ));
 }
