@@ -204,6 +204,8 @@ class _RowFieldState extends State<_RowField> {
           contentPadding: EdgeInsets.symmetric(horizontal: 6, vertical: 2),
           border: OutlineInputBorder(),
         ),
+        // 매 입력마다 commit (provider의 debounced auto-save가 무거운 작업 흡수)
+        onChanged: (_) => _commit(),
         onEditingComplete: _commit,
         onSubmitted: (_) => _commit(),
       ),

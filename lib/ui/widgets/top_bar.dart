@@ -35,7 +35,16 @@ class TopBar extends ConsumerWidget {
 
           // 우측 액션들
           ElevatedButton.icon(
-            onPressed: isCalculating ? null : () => runCalculate(ref),
+            onPressed: isCalculating
+                ? null
+                : () {
+                    // 활성 TextField commit 강제 (onEditingComplete 트리거)
+                    FocusManager.instance.primaryFocus?.unfocus();
+                    // 1 frame 기다려서 commit 반영 후 계산
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      runCalculate(ref);
+                    });
+                  },
             icon: isCalculating
                 ? const SizedBox(
                     width: 14,
