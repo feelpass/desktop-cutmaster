@@ -31,9 +31,10 @@ class _OptionsSectionState extends ConsumerState<OptionsSection> {
   @override
   Widget build(BuildContext context) {
     final t = AppLocalizations.of(context);
-    final p = ref.watch(activeProjectProvider)!;
+    final p = ref.watch(activeProjectProvider);
     final notifier = ref.read(tabsProvider);
-    final activeId = notifier.activeId!;
+    final activeId = notifier.activeId;
+    if (p == null || activeId == null) return const SizedBox.shrink();
 
     return Column(
       children: [

@@ -18,7 +18,9 @@ class CuttingResultPane extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final t = AppLocalizations.of(context);
-    final showLabels = ref.watch(activeProjectProvider)!.showPartLabels;
+    final project = ref.watch(activeProjectProvider);
+    if (project == null) return const SizedBox.shrink();
+    final showLabels = project.showPartLabels;
 
     return Padding(
       padding: const EdgeInsets.all(16),

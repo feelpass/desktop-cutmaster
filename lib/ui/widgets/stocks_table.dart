@@ -15,9 +15,10 @@ class StocksTable extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final project = ref.watch(activeProjectProvider)!;
+    final project = ref.watch(activeProjectProvider);
     final tabs = ref.watch(tabsProvider);
-    final activeId = tabs.activeId!;
+    final activeId = tabs.activeId;
+    if (project == null || activeId == null) return const SizedBox.shrink();
     final t = AppLocalizations.of(context);
 
     return Column(
