@@ -61,7 +61,7 @@ class CutmasterTabBar extends ConsumerWidget {
               ),
             ),
           ),
-          PlusButton(onPressed: notifier.newUntitled),
+          const PlusButton(),
         ],
       ),
     );

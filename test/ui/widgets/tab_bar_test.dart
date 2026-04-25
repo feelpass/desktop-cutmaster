@@ -91,12 +91,18 @@ void main() {
     expect(notifier.tabs, isEmpty);
   });
 
-  testWidgets('PlusButton creates a new untitled tab', (t) async {
+  testWidgets('PlusButton menu → 새 프로젝트 creates a new untitled tab',
+      (t) async {
     expect(notifier.tabs, isEmpty);
     await t.pumpWidget(pump());
     await t.pumpAndSettle();
 
+    // Open the popup (real-async sqlite call before showMenu).
     await t.tap(find.byKey(const ValueKey('plus-button')));
+    await t.runAsync(() => Future.delayed(const Duration(milliseconds: 50)));
+    await t.pump();
+    await t.pump(const Duration(milliseconds: 500));
+    await t.tap(find.text('새 프로젝트'));
     await t.pumpAndSettle();
     expect(notifier.tabs.length, 1);
     expect(notifier.tabs.first.filePath, null);
