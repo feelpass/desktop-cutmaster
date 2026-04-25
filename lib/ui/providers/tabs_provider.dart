@@ -284,7 +284,11 @@ class TabsNotifier extends ChangeNotifier {
         isActive: t.id == _activeId,
       ));
     }
-    await workspace.replaceAllTabs(rows);
+    try {
+      await workspace.replaceAllTabs(rows);
+    } catch (e) {
+      debugPrint('saveSession failed: $e');
+    }
   }
 
   void _setTab(String id, TabState Function(TabState) f) {
@@ -312,9 +316,14 @@ class TabsNotifier extends ChangeNotifier {
 
 // === Riverpod providers ===
 
-final tabsProvider =
-    ChangeNotifierProvider<TabsNotifier>((ref) => throw UnimplementedError(
-        '`tabsProvider`는 main.dart의 ProviderScope overrides에서 주입됩니다.'));
+/// 앱 라이프사이클에 1회 생성된 [TabsNotifier].
+///
+/// `main.dart`의 `ProviderScope` `overrides`에서 반드시 주입되어야 한다 —
+/// 그렇지 않으면 첫 사용 시 [UnimplementedError]가 던져진다.
+final tabsProvider = ChangeNotifierProvider<TabsNotifier>(
+  (ref) => throw UnimplementedError(
+      'tabsProvider must be overridden in main.dart ProviderScope'),
+);
 
 final activeTabIdProvider = Provider<String?>(
   (ref) => ref.watch(tabsProvider).activeId,

@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -30,7 +31,8 @@ Future<void> main() async {
 
   final ws = await WorkspaceDb.open(p.join(supportDir.path, 'workspace.db'));
 
-  // 한 번만 마이그레이션 (옛 cutmaster.db 발견 + recent_file 비어 있으면)
+  // 1회성 마이그레이션. 옛 cutmaster.db가 있고 워크스페이스에 등록된 최근 파일이
+  // 전혀 없을 때만 실행 — 이미 마이그레이션됐거나 새 사용자가 작업을 시작한 경우는 건너뜀.
   final legacyPath = p.join(supportDir.path, 'cutmaster.db');
   if (File(legacyPath).existsSync() &&
       (await ws.listRecentFiles()).isEmpty) {
@@ -79,13 +81,15 @@ class _CutmasterAppState extends ConsumerState<CutmasterApp>
   }
 
   @override
-  Future<void> didChangeAppLifecycleState(AppLifecycleState state) async {
-    if (state == AppLifecycleState.detached ||
-        state == AppLifecycleState.inactive) {
-      final n = ref.read(tabsProvider);
+  Future<AppExitResponse> didRequestAppExit() async {
+    final n = ref.read(tabsProvider);
+    try {
       await n.flushAll();
       await n.saveSession();
+    } catch (e) {
+      debugPrint('didRequestAppExit save failed: $e');
     }
+    return AppExitResponse.exit;
   }
 
   @override
