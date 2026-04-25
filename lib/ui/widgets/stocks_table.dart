@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../domain/models/stock_sheet.dart';
 import '../../l10n/app_localizations.dart';
-import '../providers/current_project_provider.dart';
+import '../providers/tabs_provider.dart';
 import '../utils/part_color.dart';
 import 'color_swatch_button.dart';
 import 'editable_dimension_table.dart';
@@ -14,7 +14,9 @@ class StocksTable extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final project = ref.watch(currentProjectProvider);
+    final project = ref.watch(activeProjectProvider)!;
+    final tabs = ref.watch(tabsProvider);
+    final activeId = tabs.activeId!;
     final t = AppLocalizations.of(context);
 
     return Column(
@@ -41,7 +43,7 @@ class StocksTable extends ConsumerWidget {
                 updated[i] = newArgb == null
                     ? s.copyWith(clearColor: true)
                     : s.copyWith(colorArgb: newArgb);
-                ref.read(currentProjectProvider.notifier).updateStocks(updated);
+                ref.read(tabsProvider).updateStocks(activeId, updated);
               },
             );
           },
@@ -64,7 +66,7 @@ class StocksTable extends ConsumerWidget {
                     : GrainDirection.none,
               ));
             }
-            ref.read(currentProjectProvider.notifier).updateStocks(next);
+            ref.read(tabsProvider).updateStocks(activeId, next);
           },
           newId: () => 's${DateTime.now().microsecondsSinceEpoch}',
           addRowTooltip: t.addRow,
@@ -78,9 +80,7 @@ class StocksTable extends ConsumerWidget {
               final picked = await showPresetDialog(context);
               if (picked != null) {
                 final updated = [...project.stocks, picked];
-                ref
-                    .read(currentProjectProvider.notifier)
-                    .updateStocks(updated);
+                ref.read(tabsProvider).updateStocks(activeId, updated);
               }
             },
             icon: const Icon(Icons.add_box_outlined, size: 16),

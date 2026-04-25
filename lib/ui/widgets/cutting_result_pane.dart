@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../domain/models/cutting_plan.dart';
 import '../../l10n/app_localizations.dart';
-import '../providers/current_project_provider.dart';
+import '../providers/tabs_provider.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_text_styles.dart';
 import '../utils/png_export.dart';
@@ -17,7 +17,7 @@ class CuttingResultPane extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final t = AppLocalizations.of(context);
-    final showLabels = ref.watch(currentProjectProvider).showPartLabels;
+    final showLabels = ref.watch(activeProjectProvider)!.showPartLabels;
 
     return Padding(
       padding: const EdgeInsets.all(16),
@@ -55,7 +55,7 @@ class CuttingResultPane extends ConsumerWidget {
                     : () => exportSheetsToPng(
                           context,
                           plan,
-                          ref.read(currentProjectProvider).stocks,
+                          ref.read(tabsProvider).active!.project.stocks,
                           showLabels,
                         ),
                 icon: const Icon(Icons.image_outlined, size: 16),
@@ -79,7 +79,9 @@ class CuttingResultPane extends ConsumerWidget {
                 itemBuilder: (_, i) {
                   final s = plan.sheets[i];
                   final stock = ref
-                      .read(currentProjectProvider)
+                      .read(tabsProvider)
+                      .active!
+                      .project
                       .stocks
                       .where((st) => st.id == s.stockSheetId)
                       .toList();

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../l10n/app_localizations.dart';
-import '../providers/current_project_provider.dart';
+import '../providers/tabs_provider.dart';
 import '../theme/app_text_styles.dart';
 
 class OptionsSection extends ConsumerStatefulWidget {
@@ -18,7 +18,7 @@ class _OptionsSectionState extends ConsumerState<OptionsSection> {
   @override
   void initState() {
     super.initState();
-    final p = ref.read(currentProjectProvider);
+    final p = ref.read(tabsProvider).active!.project;
     _kerfCtrl = TextEditingController(text: p.kerf.toStringAsFixed(0));
   }
 
@@ -31,8 +31,9 @@ class _OptionsSectionState extends ConsumerState<OptionsSection> {
   @override
   Widget build(BuildContext context) {
     final t = AppLocalizations.of(context);
-    final p = ref.watch(currentProjectProvider);
-    final notifier = ref.read(currentProjectProvider.notifier);
+    final p = ref.watch(activeProjectProvider)!;
+    final notifier = ref.read(tabsProvider);
+    final activeId = notifier.activeId!;
 
     return Column(
       children: [
@@ -52,11 +53,11 @@ class _OptionsSectionState extends ConsumerState<OptionsSection> {
                 style: AppTextStyles.tableCell,
                 onSubmitted: (v) {
                   final parsed = double.tryParse(v) ?? p.kerf;
-                  notifier.updateKerf(parsed);
+                  notifier.updateKerf(activeId, parsed);
                 },
                 onEditingComplete: () {
                   final parsed = double.tryParse(_kerfCtrl.text) ?? p.kerf;
-                  notifier.updateKerf(parsed);
+                  notifier.updateKerf(activeId, parsed);
                 },
               ),
             ),
@@ -65,17 +66,17 @@ class _OptionsSectionState extends ConsumerState<OptionsSection> {
         _ToggleRow(
           label: t.lockGrain,
           value: p.grainLocked,
-          onChanged: notifier.updateGrainLocked,
+          onChanged: (v) => notifier.updateGrainLocked(activeId, v),
         ),
         _ToggleRow(
           label: t.showPartLabels,
           value: p.showPartLabels,
-          onChanged: notifier.updateShowPartLabels,
+          onChanged: (v) => notifier.updateShowPartLabels(activeId, v),
         ),
         _ToggleRow(
           label: t.useSingleSheet,
           value: p.useSingleSheet,
-          onChanged: notifier.updateUseSingleSheet,
+          onChanged: (v) => notifier.updateUseSingleSheet(activeId, v),
         ),
       ],
     );

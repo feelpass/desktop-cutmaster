@@ -4,7 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../domain/models/cut_part.dart';
 import '../../domain/models/stock_sheet.dart' show GrainDirection;
 import '../../l10n/app_localizations.dart';
-import '../providers/current_project_provider.dart';
+import '../providers/tabs_provider.dart';
 import '../utils/part_color.dart';
 import 'color_swatch_button.dart';
 import 'editable_dimension_table.dart';
@@ -14,7 +14,9 @@ class PartsTable extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final project = ref.watch(currentProjectProvider);
+    final project = ref.watch(activeProjectProvider)!;
+    final tabs = ref.watch(tabsProvider);
+    final activeId = tabs.activeId!;
     final t = AppLocalizations.of(context);
 
     return EditableDimensionTable(
@@ -38,7 +40,7 @@ class PartsTable extends ConsumerWidget {
             updated[i] = newArgb == null
                 ? p.copyWith(clearColor: true)
                 : p.copyWith(colorArgb: newArgb);
-            ref.read(currentProjectProvider.notifier).updateParts(updated);
+            ref.read(tabsProvider).updateParts(activeId, updated);
           },
         );
       },
@@ -59,7 +61,7 @@ class PartsTable extends ConsumerWidget {
                 : GrainDirection.none,
           ));
         }
-        ref.read(currentProjectProvider.notifier).updateParts(next);
+        ref.read(tabsProvider).updateParts(activeId, next);
       },
       newId: () => 'p${DateTime.now().microsecondsSinceEpoch}',
       addRowTooltip: t.addRow,
