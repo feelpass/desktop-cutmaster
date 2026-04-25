@@ -209,6 +209,44 @@ class TabsNotifier extends ChangeNotifier {
     return path;
   }
 
+  /// 탭의 이름 + (저장된 탭이면) 파일도 같이 rename.
+  /// untitled 탭은 메모리 이름만 변경되고 [null]을 반환.
+  /// 저장된 탭은 파일을 같은 폴더 내에서 rename + workspace recent 갱신, 새 경로를 반환.
+  Future<String?> renameSavedFile(String id, String newName) async {
+    if (_disposed) return null;
+    final tab = _tabs.firstWhereOrNull((t) => t.id == id);
+    if (tab == null) return null;
+
+    if (newName.trim().isEmpty) return null;
+    final cleanName = ProjectFileService.sanitizeBaseName(newName);
+    if (cleanName.isEmpty) return null;
+
+    if (tab.filePath == null) {
+      // untitled — 메모리만
+      _setTab(id, (t) => t.copyWith(
+            project: t.project.copyWith(name: cleanName),
+            isDirty: true,
+          ));
+      _scheduleSave(id);
+      return null;
+    }
+
+    // 저장된 탭
+    final newPath = await files.rename(tab.filePath!, cleanName);
+    if (_disposed) return newPath;
+    _setTab(id, (t) => t.copyWith(
+          filePath: newPath,
+          project: t.project.copyWith(name: cleanName),
+          isDirty: false,
+        ));
+    await workspace.touchRecentFile(newPath, cleanName);
+    if (tab.filePath != newPath) {
+      // 옛 path가 recent에 남아있으면 정리
+      await workspace.removeRecentFile(tab.filePath!);
+    }
+    return newPath;
+  }
+
   void _scheduleSave(String id) {
     _saveTimers.remove(id)?.cancel();
     _saveTimers[id] = Timer(saveDebounce, () => _persist(id));

@@ -52,8 +52,9 @@ class CutmasterTabBar extends ConsumerWidget {
                         isUntitled: tab.filePath == null,
                         onTap: () => notifier.setActive(tab.id),
                         onClose: () => notifier.closeTab(tab.id),
+                        // untitled은 in-memory 이름, saved 탭은 파일까지 rename
                         onRenameSubmit: (name) =>
-                            notifier.updateName(tab.id, name),
+                            notifier.renameSavedFile(tab.id, name),
                       ),
                     ),
                   );

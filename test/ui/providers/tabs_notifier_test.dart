@@ -138,4 +138,49 @@ void main() {
     await notifier.flushAll();
     expect(notifier.tabs.first.isDirty, false);
   });
+
+  test('renameSavedFile renames file + filePath + name + recent', () async {
+    notifier.newUntitled();
+    final id = notifier.tabs.first.id;
+    notifier.updateName(id, '책장');
+    final originalPath = await notifier.saveAs(id);
+    expect(originalPath, p.join(tmp.path, '책장.cutmaster'));
+
+    final newPath = await notifier.renameSavedFile(id, '책상');
+
+    expect(newPath, p.join(tmp.path, '책상.cutmaster'));
+    expect(File(newPath!).existsSync(), true);
+    expect(File(originalPath!).existsSync(), false);
+
+    final tab = notifier.tabs.first;
+    expect(tab.filePath, newPath);
+    expect(tab.project.name, '책상');
+    expect(tab.isDirty, false);
+
+    final recent = await ws.listRecentFiles();
+    expect(recent.length, 1);
+    expect(recent.first.filePath, newPath);
+  });
+
+  test('renameSavedFile on untitled tab updates name only (no file)', () async {
+    notifier.newUntitled();
+    final id = notifier.tabs.first.id;
+    final result = await notifier.renameSavedFile(id, '책장');
+    expect(result, null);
+    expect(notifier.tabs.first.project.name, '책장');
+    expect(notifier.tabs.first.filePath, null);
+    expect(notifier.tabs.first.isDirty, true);
+  });
+
+  test('renameSavedFile rejects empty/whitespace', () async {
+    notifier.newUntitled();
+    final id = notifier.tabs.first.id;
+    notifier.updateName(id, '책장');
+    final path = await notifier.saveAs(id);
+
+    final result = await notifier.renameSavedFile(id, '   ');
+    expect(result, null);
+    expect(notifier.tabs.first.filePath, path);
+    expect(notifier.tabs.first.project.name, '책장');
+  });
 }
