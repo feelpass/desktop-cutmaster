@@ -54,4 +54,45 @@ class Project {
         createdAt: createdAt,
         updatedAt: DateTime.now(),
       );
+
+  static const int schemaVersion = 1;
+
+  Map<String, dynamic> toJson() => {
+        'schemaVersion': schemaVersion,
+        'id': id,
+        'name': name,
+        'kerf': kerf,
+        'grainLocked': grainLocked,
+        'showPartLabels': showPartLabels,
+        'useSingleSheet': useSingleSheet,
+        'stocks': stocks.map((s) => s.toJson()).toList(),
+        'parts': parts.map((c) => c.toJson()).toList(),
+        'createdAt': createdAt.toIso8601String(),
+        'updatedAt': updatedAt.toIso8601String(),
+      };
+
+  factory Project.fromJson(Map<String, dynamic> j) {
+    final v = j['schemaVersion'] as int? ?? 1;
+    if (v > schemaVersion) {
+      throw FormatException('Unsupported schemaVersion: $v');
+    }
+    return Project(
+      id: j['id'] as String,
+      name: j['name'] as String,
+      stocks: ((j['stocks'] as List?) ?? const [])
+          .map((e) => StockSheet.fromJson(e as Map<String, dynamic>))
+          .toList(),
+      parts: ((j['parts'] as List?) ?? const [])
+          .map((e) => CutPart.fromJson(e as Map<String, dynamic>))
+          .toList(),
+      kerf: ((j['kerf'] as num?) ?? 3).toDouble(),
+      grainLocked: (j['grainLocked'] as bool?) ?? false,
+      showPartLabels: (j['showPartLabels'] as bool?) ?? true,
+      useSingleSheet: (j['useSingleSheet'] as bool?) ?? false,
+      createdAt: DateTime.parse(j['createdAt'] as String? ??
+          DateTime.now().toIso8601String()),
+      updatedAt: DateTime.parse(j['updatedAt'] as String? ??
+          DateTime.now().toIso8601String()),
+    );
+  }
 }
