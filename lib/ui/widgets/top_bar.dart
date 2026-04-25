@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../l10n/app_localizations.dart';
-import '../providers/current_project_provider.dart';
 import '../providers/solver_provider.dart';
+import '../providers/tabs_provider.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_text_styles.dart';
 import 'project_dropdown.dart';
@@ -15,7 +15,8 @@ class TopBar extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final t = AppLocalizations.of(context);
     final isCalculating = ref.watch(isCalculatingProvider);
-    final project = ref.watch(currentProjectProvider);
+    final project = ref.watch(activeProjectProvider);
+    if (project == null) return const SizedBox.shrink();
 
     return Container(
       height: 48,

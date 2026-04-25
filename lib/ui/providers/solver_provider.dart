@@ -2,7 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../domain/models/cutting_plan.dart';
 import '../../domain/solver/solver_isolate.dart';
-import 'current_project_provider.dart';
+import 'tabs_provider.dart';
 
 /// 마지막 계산 결과. null = 아직 계산 안 함 (EmptyResultPane 표시).
 final cuttingPlanProvider = StateProvider<CuttingPlan?>((ref) => null);
@@ -12,7 +12,8 @@ final isCalculatingProvider = StateProvider<bool>((ref) => false);
 
 /// 솔버 실행 함수. ▶ 계산 버튼이 호출.
 Future<void> runCalculate(WidgetRef ref) async {
-  final project = ref.read(currentProjectProvider);
+  final project = ref.read(activeProjectProvider);
+  if (project == null) return;
   ref.read(isCalculatingProvider.notifier).state = true;
   try {
     final plan = await solveInIsolate(
