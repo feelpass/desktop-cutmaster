@@ -13,6 +13,7 @@ class EditableDimensionTable extends StatelessWidget {
     required this.newId,
     this.addRowTooltip = '',
     this.deleteRowTooltip = '',
+    this.leadingBuilder,
   });
 
   final List<EditableRow> rows;
@@ -21,9 +22,14 @@ class EditableDimensionTable extends StatelessWidget {
   final String addRowTooltip;
   final String deleteRowTooltip;
 
+  /// 행 앞쪽에 표시할 선택적 위젯 (예: 부품 색상 swatch).
+  /// null이면 leading 영역이 아예 없음 (stocks 같은 경우).
+  final Widget Function(BuildContext context, int index)? leadingBuilder;
+
   @override
   Widget build(BuildContext context) {
     final t = AppLocalizations.of(context);
+    final hasLeading = leadingBuilder != null;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -32,6 +38,7 @@ class EditableDimensionTable extends StatelessWidget {
           padding: const EdgeInsets.only(bottom: 4),
           child: Row(
             children: [
+              if (hasLeading) const SizedBox(width: 28),
               Expanded(child: Text(t.length, style: AppTextStyles.tableHeader)),
               Expanded(child: Text(t.width, style: AppTextStyles.tableHeader)),
               SizedBox(
@@ -61,6 +68,7 @@ class EditableDimensionTable extends StatelessWidget {
               onChanged(next);
             },
             deleteTooltip: deleteRowTooltip,
+            leading: hasLeading ? leadingBuilder!(context, i) : null,
           );
         }),
         // add row
@@ -115,12 +123,14 @@ class _RowField extends StatefulWidget {
     required this.onChanged,
     required this.onDelete,
     required this.deleteTooltip,
+    this.leading,
   });
 
   final EditableRow row;
   final ValueChanged<EditableRow> onChanged;
   final VoidCallback onDelete;
   final String deleteTooltip;
+  final Widget? leading;
 
   @override
   State<_RowField> createState() => _RowFieldState();
@@ -169,6 +179,10 @@ class _RowFieldState extends State<_RowField> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
+          if (widget.leading != null) ...[
+            SizedBox(width: 24, child: widget.leading),
+            const SizedBox(width: 4),
+          ],
           Expanded(child: _cell(_lenCtrl, true)),
           const SizedBox(width: 4),
           Expanded(child: _cell(_widCtrl, true)),

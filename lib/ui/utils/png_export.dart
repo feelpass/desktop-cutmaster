@@ -6,13 +6,15 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 
 import '../../domain/models/cutting_plan.dart';
+import '../../domain/models/stock_sheet.dart';
+import 'part_color.dart';
 
 /// 시트별 PNG 파일 저장. 기본 75dpi (메모리 압박 방지).
-/// 큰 시트(2440×1220)도 75dpi면 ~7200×3600px 정도, raw ~100MB.
-/// 너무 크면 60dpi로 fallback 가능.
+/// 시트별로 stock 정보를 lookup해서 색상까지 반영.
 Future<void> exportSheetsToPng(
   BuildContext context,
   CuttingPlan plan,
+  List<StockSheet> stocks,
   bool showLabels, {
   double dpi = 75,
 }) async {
@@ -21,9 +23,12 @@ Future<void> exportSheetsToPng(
   );
   if (dir == null) return;
 
+  final stockById = {for (final s in stocks) s.id: s};
+
   for (int i = 0; i < plan.sheets.length; i++) {
     final s = plan.sheets[i];
-    final png = await _renderSheetToPng(s, showLabels, dpi);
+    final stock = stockById[s.stockSheetId];
+    final png = await _renderSheetToPng(s, stock, showLabels, dpi);
     if (png == null) continue;
     final file = File('$dir/cutmaster-sheet-${i + 1}.png');
     await file.writeAsBytes(png);
@@ -38,6 +43,7 @@ Future<void> exportSheetsToPng(
 
 Future<Uint8List?> _renderSheetToPng(
   SheetLayout sheet,
+  StockSheet? stock,
   bool showLabels,
   double dpi,
 ) async {
@@ -50,12 +56,11 @@ Future<Uint8List?> _renderSheetToPng(
   final canvas = Canvas(recorder);
   final size = Size(widthPx.toDouble(), heightPx.toDouble());
 
-  // CustomPainter 직접 호출 대신, 같은 그리기 로직 _PaintAdapter로 분리해 재사용.
-  // (Widget tree 없이 픽셀 단위로 정확히 렌더링.)
   _PaintAdapter(
     canvas: canvas,
     size: size,
     sheet: sheet,
+    stock: stock,
     showLabels: showLabels,
   ).paint();
 
@@ -70,35 +75,37 @@ class _PaintAdapter {
     required this.canvas,
     required this.size,
     required this.sheet,
+    required this.stock,
     required this.showLabels,
   });
   final Canvas canvas;
   final Size size;
   final SheetLayout sheet;
+  final StockSheet? stock;
   final bool showLabels;
 
   void paint() {
     final scaleX = size.width / sheet.sheetLength;
     final scaleY = size.height / sheet.sheetWidth;
 
-    canvas.drawRect(
-      Offset.zero & size,
-      Paint()..color = const Color(0xFFF5F5F7),
-    );
+    // 시트 배경: 자재 색 tint
+    final stockColor = stock != null
+        ? resolveColor(stock!.id, stock!.colorArgb, ColorPalette.stock)
+        : const Color(0xFFF5F5F7);
+    final bgColor = Color.lerp(Colors.white, stockColor, 0.35) ?? stockColor;
+    canvas.drawRect(Offset.zero & size, Paint()..color = bgColor);
+
+    // 시트 외곽
+    final borderColor = stockColor.computeLuminance() < 0.7
+        ? stockColor
+        : const Color(0xFFE5E5E5);
     canvas.drawRect(
       Offset.zero & size,
       Paint()
-        ..color = const Color(0xFFE5E5E5)
+        ..color = borderColor
         ..style = PaintingStyle.stroke
         ..strokeWidth = 1.5,
     );
-
-    final partFill =
-        Paint()..color = const Color(0xFF16A34A).withValues(alpha: 0.15);
-    final partStroke = Paint()
-      ..color = const Color(0xFF16A34A)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1;
 
     for (final pp in sheet.placed) {
       final rect = Rect.fromLTWH(
@@ -107,8 +114,19 @@ class _PaintAdapter {
         pp.drawLength * scaleX,
         pp.drawWidth * scaleY,
       );
-      canvas.drawRect(rect, partFill);
-      canvas.drawRect(rect, partStroke);
+      final color = resolveColor(
+        pp.part.id,
+        pp.part.colorArgb,
+        ColorPalette.part,
+      );
+      canvas.drawRect(rect, Paint()..color = color.withValues(alpha: 0.45));
+      canvas.drawRect(
+        rect,
+        Paint()
+          ..color = color
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1.2,
+      );
 
       if (showLabels) {
         final dimText =
@@ -116,13 +134,13 @@ class _PaintAdapter {
         final fullLabel = pp.part.label.isNotEmpty
             ? '${pp.part.label}\n$dimText'
             : dimText;
+        final textColor = color.computeLuminance() < 0.5
+            ? Colors.white
+            : const Color(0xFF1A1A1A);
         final tp = TextPainter(
           text: TextSpan(
             text: fullLabel,
-            style: const TextStyle(
-              color: Color(0xFF1A1A1A),
-              fontSize: 10,
-            ),
+            style: TextStyle(color: textColor, fontSize: 10),
           ),
           textAlign: TextAlign.center,
           textDirection: TextDirection.ltr,

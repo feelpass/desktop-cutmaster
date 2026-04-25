@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../domain/models/stock_sheet.dart';
 import '../../l10n/app_localizations.dart';
 import '../providers/current_project_provider.dart';
+import '../utils/part_color.dart';
+import 'color_swatch_button.dart';
 import 'editable_dimension_table.dart';
 import 'preset_dialog.dart';
 
@@ -28,16 +30,40 @@ class StocksTable extends ConsumerWidget {
                     label: s.label,
                   ))
               .toList(),
+          leadingBuilder: (ctx, i) {
+            final s = project.stocks[i];
+            return ColorSwatchButton(
+              entityId: s.id,
+              colorArgb: s.colorArgb,
+              palette: ColorPalette.stock,
+              onChanged: (newArgb) {
+                final updated = [...project.stocks];
+                updated[i] = newArgb == null
+                    ? s.copyWith(clearColor: true)
+                    : s.copyWith(colorArgb: newArgb);
+                ref.read(currentProjectProvider.notifier).updateStocks(updated);
+              },
+            );
+          },
           onChanged: (rows) {
-            final next = rows
-                .map((r) => StockSheet(
-                      id: r.id,
-                      length: r.length,
-                      width: r.width,
-                      qty: r.qty,
-                      label: r.label,
-                    ))
-                .toList();
+            // 기존 색상/결방향 보존
+            final next = <StockSheet>[];
+            for (final r in rows) {
+              final existing =
+                  project.stocks.where((s) => s.id == r.id).toList();
+              next.add(StockSheet(
+                id: r.id,
+                length: r.length,
+                width: r.width,
+                qty: r.qty,
+                label: r.label,
+                colorArgb:
+                    existing.isNotEmpty ? existing.first.colorArgb : null,
+                grainDirection: existing.isNotEmpty
+                    ? existing.first.grainDirection
+                    : GrainDirection.none,
+              ));
+            }
             ref.read(currentProjectProvider.notifier).updateStocks(next);
           },
           newId: () => 's${DateTime.now().microsecondsSinceEpoch}',

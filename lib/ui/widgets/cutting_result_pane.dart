@@ -52,7 +52,12 @@ class CuttingResultPane extends ConsumerWidget {
               OutlinedButton.icon(
                 onPressed: plan.sheets.isEmpty
                     ? null
-                    : () => exportSheetsToPng(context, plan, showLabels),
+                    : () => exportSheetsToPng(
+                          context,
+                          plan,
+                          ref.read(currentProjectProvider).stocks,
+                          showLabels,
+                        ),
                 icon: const Icon(Icons.image_outlined, size: 16),
                 label: Text(t.exportPng),
               ),
@@ -68,18 +73,27 @@ class CuttingResultPane extends ConsumerWidget {
               separatorBuilder: (_, _) => const SizedBox(height: 24),
               itemBuilder: (_, i) {
                 final s = plan.sheets[i];
+                final stock = ref
+                    .read(currentProjectProvider)
+                    .stocks
+                    .where((st) => st.id == s.stockSheetId)
+                    .toList();
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      '시트 ${i + 1}  •  ${s.sheetLength.toStringAsFixed(0)} × ${s.sheetWidth.toStringAsFixed(0)} mm  •  ${s.usedPercent.toStringAsFixed(1)}%',
+                      '시트 ${i + 1}  •  ${s.sheetLength.toStringAsFixed(0)} × ${s.sheetWidth.toStringAsFixed(0)} mm  •  ${s.usedPercent.toStringAsFixed(1)}%${stock.isNotEmpty && stock.first.label.isNotEmpty ? "  •  ${stock.first.label}" : ""}',
                       style: AppTextStyles.body.copyWith(
                         fontWeight: FontWeight.w600,
                         color: AppColors.textSecondary,
                       ),
                     ),
                     const SizedBox(height: 8),
-                    CuttingCanvas(sheet: s, showLabels: showLabels),
+                    CuttingCanvas(
+                      sheet: s,
+                      stock: stock.isNotEmpty ? stock.first : null,
+                      showLabels: showLabels,
+                    ),
                   ],
                 );
               },
