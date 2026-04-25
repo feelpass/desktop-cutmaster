@@ -3,8 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../l10n/app_localizations.dart';
 import '../providers/solver_provider.dart';
+import '../providers/tabs_provider.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_text_styles.dart';
+import 'save_as_dialog.dart';
+import 'tab_bar.dart';
 
 class TopBar extends ConsumerWidget {
   const TopBar({super.key});
@@ -27,8 +30,8 @@ class TopBar extends ConsumerWidget {
 
           const SizedBox(width: 24),
 
-          // TODO(task-14): replace with TabBar
-          const Spacer(),
+          // 탭 영역
+          const Expanded(child: CutmasterTabBar()),
 
           // 우측 액션들
           ElevatedButton.icon(
@@ -56,9 +59,7 @@ class TopBar extends ConsumerWidget {
           ),
           const SizedBox(width: 8),
           IconButton(
-            onPressed: () {
-              // 자동 저장이라 명시 저장은 즉시 trigger만
-            },
+            onPressed: () => _onSavePressed(context, ref),
             icon: const Icon(Icons.save, color: AppColors.textOnHeader, size: 20),
             tooltip: t.save,
           ),
@@ -71,5 +72,30 @@ class TopBar extends ConsumerWidget {
         ],
       ),
     );
+  }
+
+  Future<void> _onSavePressed(BuildContext context, WidgetRef ref) async {
+    final notifier = ref.read(tabsProvider);
+    final tab = notifier.active;
+    if (tab == null) return;
+
+    if (tab.filePath != null) {
+      // 이미 저장된 탭 — 즉시 flush
+      await notifier.saveAs(tab.id);
+      return;
+    }
+
+    // Untitled — 다이얼로그
+    final name = await showSaveAsDialog(context, initialName: tab.project.name);
+    if (name == null) return;
+    try {
+      await notifier.saveAs(tab.id, overrideName: name);
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('저장 실패: $e')),
+        );
+      }
+    }
   }
 }
