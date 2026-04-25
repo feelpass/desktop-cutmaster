@@ -10,7 +10,7 @@ void main() {
         const StockSheet(
           id: 's1', length: 2440, width: 1220, qty: 2,
           label: '12T', grainDirection: GrainDirection.lengthwise,
-          colorArgb: 0xFF995533,
+          colorPresetId: 'cp_walnut',
         ),
       ],
       parts: [

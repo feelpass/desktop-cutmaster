@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../domain/models/stock_sheet.dart';
 import '../../l10n/app_localizations.dart';
+import '../providers/preset_provider.dart';
 import '../providers/tabs_provider.dart';
 import '../utils/part_color.dart';
 import 'color_swatch_button.dart';
@@ -36,13 +37,21 @@ class StocksTable extends ConsumerWidget {
             final s = project.stocks[i];
             return ColorSwatchButton(
               entityId: s.id,
-              colorArgb: s.colorArgb,
+              colorPresetId: s.colorPresetId,
               palette: ColorPalette.stock,
               onChanged: (newArgb) {
                 final updated = [...project.stocks];
-                updated[i] = newArgb == null
-                    ? s.copyWith(clearColor: true)
-                    : s.copyWith(colorArgb: newArgb);
+                if (newArgb == null) {
+                  updated[i] = s.copyWith(clearColor: true);
+                } else {
+                  final presets = ref.read(presetsProvider);
+                  final matched = presets.state.colors
+                      .where((c) => c.argb == newArgb)
+                      .toList();
+                  updated[i] = matched.isNotEmpty
+                      ? s.copyWith(colorPresetId: matched.first.id)
+                      : s.copyWith(clearColor: true);
+                }
                 ref.read(tabsProvider).updateStocks(activeId, updated);
               },
             );
@@ -59,8 +68,8 @@ class StocksTable extends ConsumerWidget {
                 width: r.width,
                 qty: r.qty,
                 label: r.label,
-                colorArgb:
-                    existing.isNotEmpty ? existing.first.colorArgb : null,
+                colorPresetId:
+                    existing.isNotEmpty ? existing.first.colorPresetId : null,
                 grainDirection: existing.isNotEmpty
                     ? existing.first.grainDirection
                     : GrainDirection.none,
