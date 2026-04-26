@@ -4,12 +4,22 @@ import 'dart:ui' as ui;
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show rootBundle;
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 
 import '../../domain/models/cutting_plan.dart';
 import '../../domain/models/stock_sheet.dart';
 import 'sheet_painter.dart';
+
+/// PDF 한글 출력을 위한 Pretendard 폰트. 첫 호출 시 1회 로드, 이후 캐시.
+pw.Font? _cachedFont;
+Future<pw.Font> _loadKoreanFont() async {
+  if (_cachedFont != null) return _cachedFont!;
+  final data = await rootBundle.load('assets/fonts/Pretendard-Regular.ttf');
+  _cachedFont = pw.Font.ttf(data);
+  return _cachedFont!;
+}
 
 /// 모든 시트를 한 PDF 파일에 시트별 페이지로 내보낸다 (A4 가로).
 /// 페이지 헤더(시트 번호/치수/자재명/효율) + 본문(시트 이미지 raster) + 푸터(앱명·날짜).
@@ -35,7 +45,13 @@ Future<void> exportSheetsToPdf(
   if (outPath == null) return;
 
   final stockById = {for (final s in stocks) s.id: s};
-  final doc = pw.Document();
+  final korean = await _loadKoreanFont();
+  final doc = pw.Document(
+    theme: pw.ThemeData.withFont(
+      base: korean,
+      bold: korean, // Regular만 임베드 — bold 요청 시 동일 폰트 fallback
+    ),
+  );
 
   for (int i = 0; i < plan.sheets.length; i++) {
     final s = plan.sheets[i];

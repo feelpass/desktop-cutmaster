@@ -6,6 +6,7 @@ class AppTheme {
 
   static ThemeData light() => ThemeData(
         useMaterial3: true,
+        fontFamily: 'Pretendard',
         colorScheme: ColorScheme.fromSeed(
           seedColor: AppColors.primary,
           primary: AppColors.primary,
