@@ -153,14 +153,20 @@ class SheetPainter {
 
     // (1) 흰색 outline 패스 — TextPainter가 stroke를 직접 지원하지 않으므로
     //     foreground Paint(stroke)로 한 번 그린다.
+    const labelFontSize = 13.0;
     final outlinePaint = Paint()
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 2.5
+      ..strokeWidth = 3.0
       ..color = Colors.white;
     final outlineTp = TextPainter(
       text: TextSpan(
         text: fullLabel,
-        style: TextStyle(fontSize: 10, foreground: outlinePaint),
+        style: TextStyle(
+          fontFamily: 'Pretendard',
+          fontSize: labelFontSize,
+          fontWeight: FontWeight.w600,
+          foreground: outlinePaint,
+        ),
       ),
       textAlign: TextAlign.center,
       textDirection: TextDirection.ltr,
@@ -170,7 +176,12 @@ class SheetPainter {
     final fillTp = TextPainter(
       text: TextSpan(
         text: fullLabel,
-        style: TextStyle(color: textColor, fontSize: 10),
+        style: TextStyle(
+          fontFamily: 'Pretendard',
+          color: textColor,
+          fontSize: labelFontSize,
+          fontWeight: FontWeight.w600,
+        ),
       ),
       textAlign: TextAlign.center,
       textDirection: TextDirection.ltr,
