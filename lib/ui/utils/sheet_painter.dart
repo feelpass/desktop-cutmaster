@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import '../../domain/models/cutting_plan.dart';
@@ -139,59 +141,136 @@ class SheetPainter {
     }
   }
 
+  /// 부품 라벨 표시 — 위쪽 가운데에 가로 변 치수, 왼쪽 가운데에 세로 변 치수
+  /// (90° 회전), 정중앙에 부품 이름. 부품 이름은 부품의 긴쪽 방향에 맞춰
+  /// 회전된다 (가로형이면 가로, 세로형이면 90° 회전).
   void _paintPartLabel(Canvas canvas, Rect rect, PlacedPart pp, Color color) {
-    final dimText =
-        '${pp.drawLength.toStringAsFixed(0)}×${pp.drawWidth.toStringAsFixed(0)}';
-    final fullLabel = pp.part.label.isNotEmpty
-        ? '${pp.part.label}\n$dimText'
-        : dimText;
+    final drawL = pp.drawLength;
+    final drawW = pp.drawWidth;
 
     // 부품 색이 어두우면 흰 글자, 밝으면 검정 글자 — 자동 대비.
     final textColor = color.computeLuminance() < 0.5
         ? Colors.white
         : const Color(0xFF1A1A1A);
 
-    // (1) 흰색 outline 패스 — TextPainter가 stroke를 직접 지원하지 않으므로
-    //     foreground Paint(stroke)로 한 번 그린다.
-    const labelFontSize = 13.0;
+    const dimFontSize = 13.0;
+    const nameFontSize = 14.0;
+
+    // 위쪽 가운데: 가로 변 길이 (drawLength).
+    _drawCenteredText(
+      canvas,
+      drawL.toStringAsFixed(0),
+      anchor: Offset(rect.left + rect.width / 2, rect.top + 4),
+      align: _TextAnchor.topCenter,
+      maxWidth: rect.width - 8,
+      fontSize: dimFontSize,
+      textColor: textColor,
+    );
+
+    // 왼쪽 가운데: 세로 변 길이 (drawWidth), 90° 회전 (위→아래로 읽힘).
+    canvas.save();
+    canvas.translate(rect.left + 4, rect.top + rect.height / 2);
+    canvas.rotate(-math.pi / 2);
+    _drawCenteredText(
+      canvas,
+      drawW.toStringAsFixed(0),
+      anchor: Offset.zero,
+      align: _TextAnchor.topCenter,
+      maxWidth: rect.height - 8,
+      fontSize: dimFontSize,
+      textColor: textColor,
+    );
+    canvas.restore();
+
+    // 정중앙: 라벨 (이름). 부품의 긴쪽 방향으로 회전.
+    if (pp.part.label.isNotEmpty) {
+      final isHorizontal = drawL >= drawW;
+      if (isHorizontal) {
+        _drawCenteredText(
+          canvas,
+          pp.part.label,
+          anchor: Offset(rect.left + rect.width / 2, rect.top + rect.height / 2),
+          align: _TextAnchor.middleCenter,
+          maxWidth: rect.width - 8,
+          fontSize: nameFontSize,
+          textColor: textColor,
+        );
+      } else {
+        canvas.save();
+        canvas.translate(
+          rect.left + rect.width / 2,
+          rect.top + rect.height / 2,
+        );
+        canvas.rotate(-math.pi / 2);
+        _drawCenteredText(
+          canvas,
+          pp.part.label,
+          anchor: Offset.zero,
+          align: _TextAnchor.middleCenter,
+          maxWidth: rect.height - 8,
+          fontSize: nameFontSize,
+          textColor: textColor,
+        );
+        canvas.restore();
+      }
+    }
+  }
+
+  /// 흰색 outline + 본 글자 두 패스로 그린다 (TextPainter가 stroke를 직접
+  /// 지원하지 않으므로 foreground Paint(stroke)로 outline을 만든다).
+  /// [anchor]는 텍스트 박스의 정렬 기준점, [align]은 그 점이 박스의 어디인지.
+  void _drawCenteredText(
+    Canvas canvas,
+    String text, {
+    required Offset anchor,
+    required _TextAnchor align,
+    required double maxWidth,
+    required double fontSize,
+    required Color textColor,
+  }) {
     final outlinePaint = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = 3.0
       ..color = Colors.white;
     final outlineTp = TextPainter(
       text: TextSpan(
-        text: fullLabel,
+        text: text,
         style: TextStyle(
           fontFamily: 'Pretendard',
-          fontSize: labelFontSize,
+          fontSize: fontSize,
           fontWeight: FontWeight.w600,
           foreground: outlinePaint,
         ),
       ),
       textAlign: TextAlign.center,
       textDirection: TextDirection.ltr,
-    )..layout(maxWidth: rect.width);
-
-    // (2) 본 글자 패스.
+    )..layout(maxWidth: maxWidth);
     final fillTp = TextPainter(
       text: TextSpan(
-        text: fullLabel,
+        text: text,
         style: TextStyle(
           fontFamily: 'Pretendard',
           color: textColor,
-          fontSize: labelFontSize,
+          fontSize: fontSize,
           fontWeight: FontWeight.w600,
         ),
       ),
       textAlign: TextAlign.center,
       textDirection: TextDirection.ltr,
-    )..layout(maxWidth: rect.width);
+    )..layout(maxWidth: maxWidth);
 
-    if (fillTp.height < rect.height && fillTp.width < rect.width) {
-      final dx = rect.left + (rect.width - fillTp.width) / 2;
-      final dy = rect.top + (rect.height - fillTp.height) / 2;
-      outlineTp.paint(canvas, Offset(dx, dy));
-      fillTp.paint(canvas, Offset(dx, dy));
-    }
+    if (fillTp.width > maxWidth) return; // 안 들어가면 skip
+    final dx = switch (align) {
+      _TextAnchor.topCenter => anchor.dx - fillTp.width / 2,
+      _TextAnchor.middleCenter => anchor.dx - fillTp.width / 2,
+    };
+    final dy = switch (align) {
+      _TextAnchor.topCenter => anchor.dy,
+      _TextAnchor.middleCenter => anchor.dy - fillTp.height / 2,
+    };
+    outlineTp.paint(canvas, Offset(dx, dy));
+    fillTp.paint(canvas, Offset(dx, dy));
   }
 }
+
+enum _TextAnchor { topCenter, middleCenter }
