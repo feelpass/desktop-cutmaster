@@ -7,6 +7,7 @@ import '../providers/tabs_provider.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_text_styles.dart';
 import 'save_as_dialog.dart';
+import 'shortcuts_cheatsheet_dialog.dart';
 import 'tab_bar.dart';
 
 class TopBar extends ConsumerWidget {
@@ -16,6 +17,11 @@ class TopBar extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final t = AppLocalizations.of(context);
     final isCalculating = ref.watch(isCalculatingProvider);
+    // 단축키 힌트 토글이 켜진 경우에만 Save 버튼 tooltip에 (⌘S)를 덧붙인다.
+    // 그 외에는 라벨을 그대로 둬 — golden / 라벨 매칭 테스트가 깨지지 않도록.
+    final showHints =
+        ref.watch(activeProjectProvider)?.showShortcutHints ?? true;
+    final saveTooltip = showHints ? '${t.save} (⌘S)' : t.save;
 
     return Container(
       height: 48,
@@ -61,7 +67,14 @@ class TopBar extends ConsumerWidget {
           IconButton(
             onPressed: () => _onSavePressed(context, ref),
             icon: const Icon(Icons.save, color: AppColors.textOnHeader, size: 20),
-            tooltip: t.save,
+            tooltip: saveTooltip,
+          ),
+          IconButton(
+            key: const ValueKey('help-button'),
+            onPressed: () => showShortcutsCheatsheet(context),
+            icon: const Icon(Icons.help_outline,
+                color: AppColors.textOnHeader, size: 20),
+            tooltip: '단축키 도움말 (?)',
           ),
           IconButton(
             onPressed: () {},

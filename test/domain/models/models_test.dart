@@ -57,6 +57,7 @@ void main() {
       expect(proj.stocks, isEmpty);
       expect(proj.showPartLabels, true);
       expect(proj.useSingleSheet, false);
+      expect(proj.showShortcutHints, true);
     });
 
     test('copyWith updates fields and updatedAt', () async {
@@ -67,6 +68,17 @@ void main() {
       expect(p2.kerf, 5);
       expect(p2.id, 'p1');
       expect(p2.updatedAt.isAfter(p.updatedAt), true);
+    });
+
+    test('copyWith updates showShortcutHints', () {
+      final p = Project.create(id: 'p1', name: 'A');
+      expect(p.showShortcutHints, true);
+      final p2 = p.copyWith(showShortcutHints: false);
+      expect(p2.showShortcutHints, false);
+      // 다른 필드는 그대로
+      expect(p2.id, p.id);
+      expect(p2.name, p.name);
+      expect(p2.showPartLabels, p.showPartLabels);
     });
   });
 }

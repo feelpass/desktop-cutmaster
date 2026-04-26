@@ -16,23 +16,31 @@ class PlusButton extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     // TabItem과 동일한 외곽 패딩/높이/모서리로 탭 외관을 흉내낸다.
+    final showHints =
+        ref.watch(activeProjectProvider)?.showShortcutHints ?? true;
+    final inkWell = InkWell(
+      key: const ValueKey('plus-button'),
+      onTap: () => _showMenu(context, ref),
+      borderRadius: const BorderRadius.vertical(top: Radius.circular(6)),
+      child: const SizedBox(
+        width: 36,
+        height: 36,
+        child: Center(
+          child: Icon(Icons.add, size: 18, color: AppColors.textOnHeader),
+        ),
+      ),
+    );
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 2),
       child: Material(
         color: Colors.white24,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(6)),
-        child: InkWell(
-          key: const ValueKey('plus-button'),
-          onTap: () => _showMenu(context, ref),
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(6)),
-          child: const SizedBox(
-            width: 36,
-            height: 36,
-            child: Center(
-              child: Icon(Icons.add, size: 18, color: AppColors.textOnHeader),
-            ),
-          ),
-        ),
+        child: showHints
+            ? Tooltip(
+                message: '새 프로젝트 (⌘N) / 파일 열기 (⌘O)',
+                child: inkWell,
+              )
+            : inkWell,
       ),
     );
   }

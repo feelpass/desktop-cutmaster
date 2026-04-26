@@ -79,6 +79,11 @@ class _OptionsSectionState extends ConsumerState<OptionsSection> {
           value: p.useSingleSheet,
           onChanged: (v) => notifier.updateUseSingleSheet(activeId, v),
         ),
+        _ToggleRow(
+          label: '단축키 안내',
+          value: p.showShortcutHints,
+          onChanged: (v) => notifier.updateShowShortcutHints(activeId, v),
+        ),
       ],
     );
   }

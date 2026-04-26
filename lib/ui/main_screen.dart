@@ -10,6 +10,7 @@ import 'theme/app_colors.dart';
 import 'widgets/left_pane.dart';
 import 'widgets/right_pane.dart';
 import 'widgets/save_as_dialog.dart';
+import 'widgets/shortcuts_cheatsheet_dialog.dart';
 import 'widgets/top_bar.dart';
 
 class MainScreen extends ConsumerStatefulWidget {
@@ -61,6 +62,10 @@ class _MainScreenState extends ConsumerState<MainScreen> {
         SingleActivator(LogicalKeyboardKey.tab, meta: true): _NextTabIntent(),
         SingleActivator(LogicalKeyboardKey.tab, control: true):
             _NextTabIntent(),
+        // `?` is shift-`/` on most US/KR layouts; also accept the bare key
+        // for layouts that emit it directly.
+        SingleActivator(LogicalKeyboardKey.slash, shift: true): _HelpIntent(),
+        SingleActivator(LogicalKeyboardKey.question): _HelpIntent(),
       },
       child: Actions(
         actions: <Type, Action<Intent>>{
@@ -99,6 +104,12 @@ class _MainScreenState extends ConsumerState<MainScreen> {
           _NextTabIntent: CallbackAction<_NextTabIntent>(
             onInvoke: (_) {
               ref.read(tabsProvider).cycleNext();
+              return null;
+            },
+          ),
+          _HelpIntent: CallbackAction<_HelpIntent>(
+            onInvoke: (_) {
+              showShortcutsCheatsheet(context);
               return null;
             },
           ),
@@ -186,4 +197,8 @@ class _SaveIntent extends Intent {
 
 class _NextTabIntent extends Intent {
   const _NextTabIntent();
+}
+
+class _HelpIntent extends Intent {
+  const _HelpIntent();
 }
