@@ -4,6 +4,7 @@ import 'package:path/path.dart' as p;
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:cutmaster/data/file/project_file.dart';
 import 'package:cutmaster/data/local/workspace_db.dart';
+import 'package:cutmaster/domain/models/solver_mode.dart';
 import 'package:cutmaster/ui/providers/tabs_provider.dart';
 
 void main() {
@@ -333,6 +334,31 @@ void main() {
     expect(received.any((m) => m.contains('나쁜')), true);
 
     await sub.cancel();
+  });
+
+  test('strip-cut update methods change project + mark dirty', () {
+    notifier.newUntitled();
+    final id = notifier.tabs.first.id;
+
+    notifier.updateSolverMode(id, SolverMode.stripCut);
+    expect(notifier.tabs.first.project.solverMode, SolverMode.stripCut);
+    expect(notifier.tabs.first.isDirty, true);
+
+    notifier.updateStripDirection(id, StripDirection.verticalFirst);
+    expect(notifier.tabs.first.project.stripDirection,
+        StripDirection.verticalFirst);
+
+    notifier.updateMaxStages(id, 5);
+    expect(notifier.tabs.first.project.maxStages, 5);
+
+    notifier.updatePreferSameWidth(id, false);
+    expect(notifier.tabs.first.project.preferSameWidth, false);
+
+    notifier.updateMinimizeCuts(id, false);
+    expect(notifier.tabs.first.project.minimizeCuts, false);
+
+    notifier.updateMinimizeWaste(id, false);
+    expect(notifier.tabs.first.project.minimizeWaste, false);
   });
 
   test('notices stream emits on conflict fork', () async {

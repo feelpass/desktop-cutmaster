@@ -10,6 +10,7 @@ import '../../data/file/project_file.dart';
 import '../../data/local/workspace_db.dart';
 import '../../domain/models/cut_part.dart';
 import '../../domain/models/project.dart';
+import '../../domain/models/solver_mode.dart';
 import '../../domain/models/stock_sheet.dart';
 
 /// 외부 mtime 충돌로 인해 분기 저장된 사실을 UI 측에 알리기 위한 메시지.
@@ -236,6 +237,24 @@ class TabsNotifier extends ChangeNotifier {
 
   void updateShowShortcutHints(String id, bool v) => _patch(id,
       (t) => t.copyWith(project: t.project.copyWith(showShortcutHints: v)));
+
+  void updateSolverMode(String id, SolverMode v) => _patch(
+      id, (t) => t.copyWith(project: t.project.copyWith(solverMode: v)));
+
+  void updateStripDirection(String id, StripDirection v) => _patch(
+      id, (t) => t.copyWith(project: t.project.copyWith(stripDirection: v)));
+
+  void updateMaxStages(String id, int v) => _patch(
+      id, (t) => t.copyWith(project: t.project.copyWith(maxStages: v)));
+
+  void updatePreferSameWidth(String id, bool v) => _patch(
+      id, (t) => t.copyWith(project: t.project.copyWith(preferSameWidth: v)));
+
+  void updateMinimizeCuts(String id, bool v) => _patch(
+      id, (t) => t.copyWith(project: t.project.copyWith(minimizeCuts: v)));
+
+  void updateMinimizeWaste(String id, bool v) => _patch(
+      id, (t) => t.copyWith(project: t.project.copyWith(minimizeWaste: v)));
 
   void _patch(String id, TabState Function(TabState) f) {
     if (_disposed) return;

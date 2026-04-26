@@ -81,6 +81,12 @@ class _MainScreenState extends ConsumerState<MainScreen> {
         parts: project.parts,
         kerf: project.kerf,
         grainLocked: project.grainLocked,
+        solverMode: project.solverMode,
+        stripDirection: project.stripDirection,
+        maxStages: project.maxStages,
+        preferSameWidth: project.preferSameWidth,
+        minimizeCuts: project.minimizeCuts,
+        minimizeWaste: project.minimizeWaste,
       );
       // 더 새로운 _calcSession 이 시작됐으면 이 결과는 stale — 무시.
       if (session != _calcSession || !mounted) return;
