@@ -148,35 +148,35 @@ class SheetPainter {
     final drawL = pp.drawLength;
     final drawW = pp.drawWidth;
 
-    // 부품 색이 어두우면 흰 글자, 밝으면 검정 글자 — 자동 대비.
-    final textColor = color.computeLuminance() < 0.5
-        ? Colors.white
-        : const Color(0xFF1A1A1A);
+    // 텍스트는 항상 검정 — 부품 색에 관계없이 통일. 흰색 outline(3.5px)이
+    // 어두운 부품 색 위에서도 가독성을 보장한다.
+    const textColor = Color(0xFF1A1A1A);
 
-    const dimFontSize = 13.0;
-    const nameFontSize = 14.0;
+    const dimFontSize = 15.0;
+    const nameFontSize = 17.0;
+    const inset = 8.0; // 텍스트 ↔ 부품 외곽선 사이 마진
 
     // 위쪽 가운데: 가로 변 길이 (drawLength).
     _drawCenteredText(
       canvas,
       drawL.toStringAsFixed(0),
-      anchor: Offset(rect.left + rect.width / 2, rect.top + 4),
+      anchor: Offset(rect.left + rect.width / 2, rect.top + inset),
       align: _TextAnchor.topCenter,
-      maxWidth: rect.width - 8,
+      maxWidth: rect.width - inset * 2,
       fontSize: dimFontSize,
       textColor: textColor,
     );
 
     // 왼쪽 가운데: 세로 변 길이 (drawWidth), 90° 회전 (위→아래로 읽힘).
     canvas.save();
-    canvas.translate(rect.left + 4, rect.top + rect.height / 2);
+    canvas.translate(rect.left + inset, rect.top + rect.height / 2);
     canvas.rotate(-math.pi / 2);
     _drawCenteredText(
       canvas,
       drawW.toStringAsFixed(0),
       anchor: Offset.zero,
       align: _TextAnchor.topCenter,
-      maxWidth: rect.height - 8,
+      maxWidth: rect.height - inset * 2,
       fontSize: dimFontSize,
       textColor: textColor,
     );
@@ -191,7 +191,7 @@ class SheetPainter {
           pp.part.label,
           anchor: Offset(rect.left + rect.width / 2, rect.top + rect.height / 2),
           align: _TextAnchor.middleCenter,
-          maxWidth: rect.width - 8,
+          maxWidth: rect.width - inset * 2,
           fontSize: nameFontSize,
           textColor: textColor,
         );
@@ -207,7 +207,7 @@ class SheetPainter {
           pp.part.label,
           anchor: Offset.zero,
           align: _TextAnchor.middleCenter,
-          maxWidth: rect.height - 8,
+          maxWidth: rect.height - inset * 2,
           fontSize: nameFontSize,
           textColor: textColor,
         );
@@ -230,7 +230,7 @@ class SheetPainter {
   }) {
     final outlinePaint = Paint()
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 3.0
+      ..strokeWidth = 3.5
       ..color = Colors.white;
     final outlineTp = TextPainter(
       text: TextSpan(
