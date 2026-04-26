@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../domain/solver/solver_isolate.dart';
+import 'providers/solver_provider.dart';
 import 'providers/tabs_provider.dart';
 import 'theme/app_colors.dart';
 import 'widgets/left_pane.dart';
@@ -23,16 +25,30 @@ class MainScreen extends ConsumerStatefulWidget {
 class _MainScreenState extends ConsumerState<MainScreen> {
   StreamSubscription<String>? _noticesSub;
 
+  /// 자동 계산용 디바운스 타이머 — 사용자가 부품/자재/옵션을 바꿀 때마다
+  /// notifyListeners 가 발생하므로, 마지막 변경 후 500ms 무변경이면 솔버 호출.
+  Timer? _autoCalcTimer;
+
+  /// 가장 최신 자동 계산 호출만 결과로 반영하기 위한 세션 카운터.
+  /// 빠른 변경으로 동시 두 번 솔버가 돌면 stale 결과가 cuttingPlanProvider 를
+  /// 덮어쓰는 race 를 방지한다.
+  int _calcSession = 0;
+
   @override
   void initState() {
     super.initState();
     final notifier = ref.read(tabsProvider);
     _noticesSub = notifier.notices.listen(_showNotice);
+    // 부팅 직후 활성 프로젝트가 이미 있으면 즉시 한 번 계산해서 결과를 띄운다.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _runAutoCalc();
+    });
   }
 
   @override
   void dispose() {
     _noticesSub?.cancel();
+    _autoCalcTimer?.cancel();
     super.dispose();
   }
 
@@ -43,8 +59,46 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     );
   }
 
+  void _scheduleAutoCalc() {
+    _autoCalcTimer?.cancel();
+    _autoCalcTimer = Timer(const Duration(milliseconds: 500), _runAutoCalc);
+  }
+
+  Future<void> _runAutoCalc() async {
+    if (!mounted) return;
+    final session = ++_calcSession;
+    final project = ref.read(activeProjectProvider);
+    if (project == null) return;
+    if (project.parts.isEmpty || project.stocks.isEmpty) {
+      // 부품 또는 자재가 비어있으면 결과 비움 (EmptyResultPane 표시).
+      ref.read(cuttingPlanProvider.notifier).state = null;
+      return;
+    }
+    ref.read(isCalculatingProvider.notifier).state = true;
+    try {
+      final plan = await solveInIsolate(
+        stocks: project.stocks,
+        parts: project.parts,
+        kerf: project.kerf,
+        grainLocked: project.grainLocked,
+      );
+      // 더 새로운 _calcSession 이 시작됐으면 이 결과는 stale — 무시.
+      if (session != _calcSession || !mounted) return;
+      ref.read(cuttingPlanProvider.notifier).state = plan;
+    } finally {
+      if (session == _calcSession && mounted) {
+        ref.read(isCalculatingProvider.notifier).state = false;
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    // 활성 프로젝트의 부품/자재/옵션이 바뀔 때마다 자동 계산 디바운스 타이머 reset.
+    ref.listen(activeProjectProvider, (prev, next) {
+      _scheduleAutoCalc();
+    });
+
     return Shortcuts(
       shortcuts: const <ShortcutActivator, Intent>{
         SingleActivator(LogicalKeyboardKey.keyN, meta: true): _NewIntent(),
