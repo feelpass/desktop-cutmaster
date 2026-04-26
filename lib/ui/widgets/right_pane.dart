@@ -10,7 +10,9 @@ class RightPane extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final plan = ref.watch(cuttingPlanProvider);
+    // displayedPlanProvider: auto-recommend chip 토글에 따라 winner/runner-up 중 하나.
+    // 일반(non-auto) 모드에선 cuttingPlanProvider와 동일.
+    final plan = ref.watch(displayedPlanProvider);
     if (plan == null) {
       return const EmptyResult();
     }

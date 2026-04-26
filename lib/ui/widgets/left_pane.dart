@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../l10n/app_localizations.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_text_styles.dart';
+import 'cut_options_section.dart';
 import 'options_section.dart';
 import 'parts_table.dart';
 import 'preset_management_dialog.dart';
@@ -37,6 +38,12 @@ class LeftPane extends ConsumerWidget {
             title: t.options,
             icon: Icons.tune,
             child: const OptionsSection(),
+          ),
+          // CutOptionsSection은 자체 ExpansionTile로 collapsible UI를 제공하므로
+          // LeftPaneSection wrapper 없이 바로 mount.
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 8),
+            child: CutOptionsSection(),
           ),
         ],
       ),
