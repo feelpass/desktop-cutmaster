@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:cutmaster/domain/models/project.dart';
 import 'package:cutmaster/domain/models/stock_sheet.dart';
 import 'package:cutmaster/domain/models/cut_part.dart';
+import 'package:cutmaster/domain/models/solver_mode.dart';
 
 void main() {
   test('Project.toJson / fromJson roundtrip preserves all fields', () {
@@ -27,7 +28,7 @@ void main() {
     );
 
     final json = orig.toJson();
-    expect(json['schemaVersion'], 2);
+    expect(json['schemaVersion'], 3);
 
     final back = Project.fromJson(json);
     expect(back.id, orig.id);
@@ -70,5 +71,43 @@ void main() {
     expect(json['showShortcutHints'], false);
     final back = Project.fromJson(json);
     expect(back.showShortcutHints, false);
+  });
+
+  test('Project v3 roundtrip preserves new strip-cut fields', () {
+    final orig = Project.create(id: 'p1', name: '서랍').copyWith(
+      solverMode: SolverMode.stripCut,
+      stripDirection: StripDirection.horizontalFirst,
+      maxStages: 4,
+      preferSameWidth: false,
+      minimizeCuts: true,
+      minimizeWaste: false,
+    );
+
+    final json = orig.toJson();
+    expect(json['schemaVersion'], 3);
+    expect(json['solverMode'], 'stripCut');
+    expect(json['stripDirection'], 'horizontalFirst');
+    expect(json['maxStages'], 4);
+    expect(json['preferSameWidth'], false);
+    expect(json['minimizeCuts'], true);
+    expect(json['minimizeWaste'], false);
+
+    final back = Project.fromJson(json);
+    expect(back.solverMode, SolverMode.stripCut);
+    expect(back.stripDirection, StripDirection.horizontalFirst);
+    expect(back.maxStages, 4);
+    expect(back.preferSameWidth, false);
+    expect(back.minimizeCuts, true);
+    expect(back.minimizeWaste, false);
+  });
+
+  test('Project default values for new strip-cut fields', () {
+    final p = Project.create(id: 'p2', name: 'default test');
+    expect(p.solverMode, SolverMode.ffd);
+    expect(p.stripDirection, StripDirection.auto);
+    expect(p.maxStages, 3);
+    expect(p.preferSameWidth, true);
+    expect(p.minimizeCuts, true);
+    expect(p.minimizeWaste, true);
   });
 }

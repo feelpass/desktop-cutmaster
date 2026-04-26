@@ -1,4 +1,5 @@
 import 'cut_part.dart';
+import 'solver_mode.dart';
 import 'stock_sheet.dart';
 
 /// 한 번의 재단 작업 단위. 자재+부품+옵션+메타데이터 묶음.
@@ -14,9 +15,15 @@ class Project {
   final bool useSingleSheet;
 
   /// 단축키 안내 — UI의 일부 버튼에 단축키 힌트(예: ⌘S)를 노출할지 여부.
-  /// 기본 true (helpful by default). schemaVersion은 그대로 2 — 키가 누락된
-  /// 기존 v1/v2 파일도 fromJson에서 `?? true`로 받아 backward-compatible.
+  /// 기본 true (helpful by default). 키가 누락된 기존 v1/v2 파일도
+  /// fromJson에서 `?? true`로 받아 backward-compatible.
   final bool showShortcutHints;
+  final SolverMode solverMode;
+  final StripDirection stripDirection;
+  final int maxStages;
+  final bool preferSameWidth;
+  final bool minimizeCuts;
+  final bool minimizeWaste;
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -30,6 +37,12 @@ class Project {
     this.showPartLabels = true,
     this.useSingleSheet = false,
     this.showShortcutHints = true,
+    this.solverMode = SolverMode.ffd,
+    this.stripDirection = StripDirection.auto,
+    this.maxStages = 3,
+    this.preferSameWidth = true,
+    this.minimizeCuts = true,
+    this.minimizeWaste = true,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -48,6 +61,12 @@ class Project {
     bool? showPartLabels,
     bool? useSingleSheet,
     bool? showShortcutHints,
+    SolverMode? solverMode,
+    StripDirection? stripDirection,
+    int? maxStages,
+    bool? preferSameWidth,
+    bool? minimizeCuts,
+    bool? minimizeWaste,
   }) =>
       Project(
         id: id,
@@ -59,6 +78,12 @@ class Project {
         showPartLabels: showPartLabels ?? this.showPartLabels,
         useSingleSheet: useSingleSheet ?? this.useSingleSheet,
         showShortcutHints: showShortcutHints ?? this.showShortcutHints,
+        solverMode: solverMode ?? this.solverMode,
+        stripDirection: stripDirection ?? this.stripDirection,
+        maxStages: maxStages ?? this.maxStages,
+        preferSameWidth: preferSameWidth ?? this.preferSameWidth,
+        minimizeCuts: minimizeCuts ?? this.minimizeCuts,
+        minimizeWaste: minimizeWaste ?? this.minimizeWaste,
         createdAt: createdAt,
         updatedAt: DateTime.now(),
       );
@@ -66,8 +91,11 @@ class Project {
   /// On-disk JSON 스키마 버전.
   /// v1: `CutPart`/`StockSheet`이 `color: int` (ARGB) 필드를 가졌음.
   /// v2: 색상이 글로벌 `ColorPreset` 라이브러리로 이동 — `colorPresetId: String?`로 참조.
+  /// v3: strip-cut 솔버 옵션 추가 — `solverMode`, `stripDirection`, `maxStages`,
+  ///     `preferSameWidth`, `minimizeCuts`, `minimizeWaste`. v2 파일은 새 필드를
+  ///     default로 받아 그대로 로드된다 (forward-compat).
   /// v1 파일은 `colorMatcher`를 통해 ARGB → preset id 마이그레이션을 거쳐 로드된다.
-  static const int schemaVersion = 2;
+  static const int schemaVersion = 3;
 
   Map<String, dynamic> toJson() => {
         'schemaVersion': schemaVersion,
@@ -80,6 +108,12 @@ class Project {
         'showShortcutHints': showShortcutHints,
         'stocks': stocks.map((s) => s.toJson()).toList(),
         'parts': parts.map((c) => c.toJson()).toList(),
+        'solverMode': solverMode.name,
+        'stripDirection': stripDirection.name,
+        'maxStages': maxStages,
+        'preferSameWidth': preferSameWidth,
+        'minimizeCuts': minimizeCuts,
+        'minimizeWaste': minimizeWaste,
         'createdAt': createdAt.toIso8601String(),
         'updatedAt': updatedAt.toIso8601String(),
       };
@@ -114,6 +148,13 @@ class Project {
       showPartLabels: (j['showPartLabels'] as bool?) ?? true,
       useSingleSheet: (j['useSingleSheet'] as bool?) ?? false,
       showShortcutHints: (j['showShortcutHints'] as bool?) ?? true,
+      solverMode: SolverMode.fromName(j['solverMode'] as String? ?? 'ffd'),
+      stripDirection:
+          StripDirection.fromName(j['stripDirection'] as String? ?? 'auto'),
+      maxStages: (j['maxStages'] as int?) ?? 3,
+      preferSameWidth: (j['preferSameWidth'] as bool?) ?? true,
+      minimizeCuts: (j['minimizeCuts'] as bool?) ?? true,
+      minimizeWaste: (j['minimizeWaste'] as bool?) ?? true,
       createdAt: DateTime.parse(j['createdAt'] as String? ??
           DateTime.now().toIso8601String()),
       updatedAt: DateTime.parse(j['updatedAt'] as String? ??
