@@ -65,6 +65,20 @@ class StocksTable extends ConsumerWidget {
                 .toList();
             ref.read(tabsProvider).updateStocks(activeId, next);
           },
+          onReorder: (rows) {
+            final next = rows
+                .map((r) => StockSheet(
+                      id: r.id,
+                      length: r.length,
+                      width: r.width,
+                      qty: r.qty,
+                      label: r.label,
+                      colorPresetId: r.colorPresetId,
+                      grainDirection: r.grainDirection,
+                    ))
+                .toList();
+            ref.read(tabsProvider).updateStocks(activeId, next);
+          },
           newId: () => 's${DateTime.now().microsecondsSinceEpoch}',
           addRowTooltip: t.addRow,
           deleteRowTooltip: t.deleteRow,

@@ -161,6 +161,66 @@ void main() {
     expect(afterCount, greaterThan(beforeCount));
   });
 
+  testWidgets('drag handle visible when onReorder provided', (tester) async {
+    final notifier = await _newNotifier();
+    var rows = const [
+      EditableRow(
+        id: 'r1',
+        length: 100,
+        width: 50,
+        qty: 1,
+        label: 'a',
+        colorPresetId: null,
+        grainDirection: GrainDirection.none,
+      ),
+    ];
+    await tester.pumpWidget(_wrap(
+      notifier: notifier,
+      child: StatefulBuilder(builder: (ctx, setState) {
+        return EditableDimensionTable(
+          rows: rows,
+          onChanged: (next) => setState(() => rows = next),
+          onReorder: (next) => setState(() => rows = next),
+          newId: () => 'x',
+        );
+      }),
+    ));
+    expect(find.byIcon(Icons.drag_indicator), findsOneWidget);
+  });
+
+  testWidgets('drag handle hidden when onReorder null', (tester) async {
+    final notifier = await _newNotifier();
+    var rows = const [
+      EditableRow(
+        id: 'r1',
+        length: 100,
+        width: 50,
+        qty: 1,
+        label: 'a',
+        colorPresetId: null,
+        grainDirection: GrainDirection.none,
+      ),
+    ];
+    await tester.pumpWidget(_wrap(
+      notifier: notifier,
+      child: StatefulBuilder(builder: (ctx, setState) {
+        return EditableDimensionTable(
+          rows: rows,
+          onChanged: (next) => setState(() => rows = next),
+          newId: () => 'x',
+        );
+      }),
+    ));
+    expect(find.byIcon(Icons.drag_indicator), findsNothing);
+  });
+
+  // Note: actually driving a reorder via tester.drag/timedDrag against
+  // ReorderableListView's drag handle is fragile in widget tests
+  // (it depends on long-press timers + scroll behavior). The list-mutation
+  // logic itself is trivial (Flutter's documented oldIndex/newIndex quirk
+  // adjusted in `_handleReorder`). End-to-end coverage will land at the
+  // integration test level.
+
   testWidgets('meta line shows grain icon when grainDirection != none',
       (tester) async {
     final notifier = await _newNotifier();

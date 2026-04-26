@@ -11,8 +11,12 @@ import 'qty_stepper.dart';
 /// 부품/자재 공통 inline editable table.
 ///
 /// 각 행은 두 줄로 구성된다:
-///  - 1줄(편집 가능): [swatch] [length] × [width] [QtyStepper] [✕]
+///  - 1줄(편집 가능): [drag?] [swatch] [length] × [width] [QtyStepper] [✕]
 ///  - 메타 줄: [색상 이름] · [결방향 아이콘] · [라벨 (인라인 편집)]
+///
+/// [onReorder] 가 제공되면 행 앞에 drag handle 이 노출되고,
+/// `ReorderableListView` 로 렌더링되어 사용자가 행을 끌어 순서를 바꿀 수 있다.
+/// `onReorder` 가 null 이면 기존처럼 `Column[...rows]` 로 그려져 동작이 동일하다.
 class EditableDimensionTable extends StatelessWidget {
   const EditableDimensionTable({
     super.key,
@@ -22,6 +26,7 @@ class EditableDimensionTable extends StatelessWidget {
     this.addRowTooltip = '',
     this.deleteRowTooltip = '',
     this.leadingBuilder,
+    this.onReorder,
   });
 
   final List<EditableRow> rows;
@@ -34,10 +39,37 @@ class EditableDimensionTable extends StatelessWidget {
   /// null이면 leading 영역이 아예 없음 (stocks 같은 경우).
   final Widget Function(BuildContext context, int index)? leadingBuilder;
 
+  /// 사용자가 행을 끌어 순서를 변경했을 때 호출. null 이면 reorder 비활성화.
+  final ValueChanged<List<EditableRow>>? onReorder;
+
+  bool get _reorderEnabled => onReorder != null;
+
   @override
   Widget build(BuildContext context) {
     final t = AppLocalizations.of(context);
     final hasLeading = leadingBuilder != null;
+    final hasReorder = _reorderEnabled;
+
+    Widget buildRow(int i) {
+      final r = rows[i];
+      return _RowField(
+        key: ValueKey(r.id),
+        row: r,
+        onChanged: (updated) {
+          final next = [...rows];
+          next[i] = updated;
+          onChanged(next);
+        },
+        onDelete: () {
+          final next = [...rows]..removeAt(i);
+          onChanged(next);
+        },
+        deleteTooltip: deleteRowTooltip,
+        leading: hasLeading ? leadingBuilder!(context, i) : null,
+        reorderIndex: hasReorder ? i : null,
+      );
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -46,6 +78,7 @@ class EditableDimensionTable extends StatelessWidget {
           padding: const EdgeInsets.only(bottom: 4),
           child: Row(
             children: [
+              if (hasReorder) const SizedBox(width: 24),
               if (hasLeading) const SizedBox(width: 28),
               Expanded(
                   flex: 2,
@@ -66,25 +99,24 @@ class EditableDimensionTable extends StatelessWidget {
           ),
         ),
         // rows
-        ...rows.asMap().entries.map((entry) {
-          final i = entry.key;
-          final r = entry.value;
-          return _RowField(
-            key: ValueKey(r.id),
-            row: r,
-            onChanged: (updated) {
+        if (hasReorder)
+          ReorderableListView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            buildDefaultDragHandles: false,
+            itemCount: rows.length,
+            itemBuilder: (ctx, i) => buildRow(i),
+            onReorder: (oldIndex, newIndex) {
+              var newIdx = newIndex;
+              if (newIdx > oldIndex) newIdx--;
               final next = [...rows];
-              next[i] = updated;
-              onChanged(next);
+              final item = next.removeAt(oldIndex);
+              next.insert(newIdx, item);
+              onReorder!(next);
             },
-            onDelete: () {
-              final next = [...rows]..removeAt(i);
-              onChanged(next);
-            },
-            deleteTooltip: deleteRowTooltip,
-            leading: hasLeading ? leadingBuilder!(context, i) : null,
-          );
-        }),
+          )
+        else
+          ...List.generate(rows.length, buildRow),
         // add row
         Padding(
           padding: const EdgeInsets.only(top: 4),
@@ -159,6 +191,7 @@ class _RowField extends StatefulWidget {
     required this.onDelete,
     required this.deleteTooltip,
     this.leading,
+    this.reorderIndex,
   });
 
   final EditableRow row;
@@ -166,6 +199,9 @@ class _RowField extends StatefulWidget {
   final VoidCallback onDelete;
   final String deleteTooltip;
   final Widget? leading;
+
+  /// `ReorderableListView` 안에서 이 행의 인덱스. null 이면 drag handle 미노출.
+  final int? reorderIndex;
 
   @override
   State<_RowField> createState() => _RowFieldState();
@@ -213,6 +249,22 @@ class _RowFieldState extends State<_RowField> {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
+              if (widget.reorderIndex != null) ...[
+                SizedBox(
+                  width: 24,
+                  child: ReorderableDragStartListener(
+                    index: widget.reorderIndex!,
+                    child: const MouseRegion(
+                      cursor: SystemMouseCursors.grab,
+                      child: Icon(
+                        Icons.drag_indicator,
+                        size: 16,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
               if (widget.leading != null) ...[
                 SizedBox(width: 24, child: widget.leading),
                 const SizedBox(width: 4),
@@ -250,6 +302,7 @@ class _RowFieldState extends State<_RowField> {
           grainDirection: widget.row.grainDirection,
           labelCtrl: _labelCtrl,
           hasLeading: widget.leading != null,
+          hasReorderHandle: widget.reorderIndex != null,
           onLabelChanged: () =>
               widget.onChanged(widget.row.copyWith(label: _labelCtrl.text)),
         ),
@@ -288,12 +341,14 @@ class _MetaLine extends ConsumerStatefulWidget {
     required this.grainDirection,
     required this.labelCtrl,
     required this.hasLeading,
+    required this.hasReorderHandle,
     required this.onLabelChanged,
   });
   final String? colorPresetId;
   final GrainDirection grainDirection;
   final TextEditingController labelCtrl;
   final bool hasLeading;
+  final bool hasReorderHandle;
   final VoidCallback onLabelChanged;
 
   @override
@@ -330,8 +385,11 @@ class _MetaLineState extends ConsumerState<_MetaLine> {
       GrainDirection.none => null,
     };
 
-    // leading swatch가 있는 경우 (parts) 들여쓰기로 정렬, 없으면(stocks) 0.
-    final leftPad = widget.hasLeading ? 32.0 : 0.0;
+    // 1줄과 동일한 prefix 폭으로 들여쓰기를 맞춰 length 컬럼 시작점에 정렬한다.
+    //   drag handle: 24, leading swatch: 28(24 + 4 gap)
+    final reorderPad = widget.hasReorderHandle ? 24.0 : 0.0;
+    final leadingPad = widget.hasLeading ? 32.0 : 0.0;
+    final leftPad = reorderPad + leadingPad;
 
     return Padding(
       padding: EdgeInsets.only(left: leftPad, top: 1, bottom: 4),

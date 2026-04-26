@@ -65,6 +65,20 @@ class PartsTable extends ConsumerWidget {
                 .toList();
             ref.read(tabsProvider).updateParts(activeId, next);
           },
+          onReorder: (rows) {
+            final next = rows
+                .map((r) => CutPart(
+                      id: r.id,
+                      length: r.length,
+                      width: r.width,
+                      qty: r.qty,
+                      label: r.label,
+                      colorPresetId: r.colorPresetId,
+                      grainDirection: r.grainDirection,
+                    ))
+                .toList();
+            ref.read(tabsProvider).updateParts(activeId, next);
+          },
           newId: () => 'p${DateTime.now().microsecondsSinceEpoch}',
           addRowTooltip: t.addRow,
           deleteRowTooltip: t.deleteRow,
