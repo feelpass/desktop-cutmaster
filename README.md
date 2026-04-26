@@ -53,20 +53,26 @@
 `scripts/`에 분석 + 테스트 + 빌드 + 패키징을 한 번에 처리하는 스크립트가 있습니다.
 
 ```bash
-# macOS — .app + .dmg
+# macOS — .app + .dmg (로컬 빌드)
 ./scripts/build-macos.sh                # pubspec의 version 사용
 ./scripts/build-macos.sh v0.2.1         # 버전 명시 (.dmg 파일명에 반영)
 ./scripts/build-macos.sh --no-dmg       # .app만, 패키징 스킵
+
+# Windows .zip — macOS에서 실행 (GitHub Actions 트리거 + 결과 다운로드)
+./scripts/build-windows.sh              # gh workflow run + artifact 다운로드
+./scripts/build-windows.sh v0.2.1       # 다운받은 zip 파일명에 버전 반영
 ```
 
 ```powershell
-# Windows — .exe + .zip (PowerShell)
+# Windows — .exe + .zip (Windows 머신에서 직접 빌드)
 .\scripts\build-windows.ps1                 # pubspec의 version 사용
 .\scripts\build-windows.ps1 -Version v0.2.1
 .\scripts\build-windows.ps1 -NoZip
 ```
 
 산출물은 `release/` 폴더 (gitignored). 친구한테 그 안의 .dmg / .zip을 전달.
+
+> Flutter는 cross-compile을 지원하지 않습니다. macOS에서 Windows 빌드를 만드려면 GitHub Actions의 windows-latest runner를 거쳐야 하므로, `build-windows.sh`는 `gh workflow run`을 트리거하고 결과 zip을 받아옵니다. `gh` CLI 인증 + 최신 commit이 `origin/main`에 push된 상태가 전제.
 
 ### Windows 자동 빌드 (GitHub Actions)
 
