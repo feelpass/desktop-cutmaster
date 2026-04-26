@@ -48,6 +48,11 @@
 - macOS: [docs/INSTALL_MACOS.md](docs/INSTALL_MACOS.md)
 - Windows: [docs/INSTALL_WINDOWS.md](docs/INSTALL_WINDOWS.md)
 
+### Windows 자동 빌드 (GitHub Actions)
+
+- `git tag v0.x && git push --tags` → Windows runner가 자동 빌드 → Releases 페이지에 `cutmaster-windows.zip` 업로드.
+- Actions 탭 → "Build Windows" → "Run workflow"로 수동 트리거도 가능.
+
 ## 개발
 
 ```bash
