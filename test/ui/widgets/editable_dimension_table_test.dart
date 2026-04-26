@@ -122,43 +122,35 @@ void main() {
     expect(find.text('자동'), findsOneWidget);
   });
 
-  testWidgets('meta line label inline edit on tap', (tester) async {
+  testWidgets('meta line shows label as read-only text', (tester) async {
     final notifier = await _newNotifier();
-    var rows = const [
-      EditableRow(
-        id: 'r1',
-        length: 600,
-        width: 300,
-        qty: 1,
-        label: '',
-      ),
+    final rowsEmpty = const [
+      EditableRow(id: 'r1', length: 600, width: 300, qty: 1, label: ''),
     ];
     await tester.pumpWidget(_wrap(
       notifier: notifier,
-      child: StatefulBuilder(builder: (ctx, setState) {
-        return EditableDimensionTable(
-          rows: rows,
-          onChanged: (next) => setState(() => rows = next),
-          newId: () => 'new',
-        );
-      }),
+      child: EditableDimensionTable(
+        rows: rowsEmpty,
+        onChanged: (_) {},
+        newId: () => 'new',
+      ),
     ));
 
-    // 빈 라벨 placeholder 탭 → TextField 등장.
-    final placeholder = find.text('라벨 추가...');
-    expect(placeholder, findsOneWidget);
+    // 빈 라벨은 placeholder em-dash로 표시되고 편집 TextField는 없다.
+    expect(find.text('—'), findsOneWidget);
 
-    // 탭 전: 다이멘션 셀 (length/width) 의 TextField 두 개.
-    final beforeTfs = find.byType(TextField);
-    final beforeCount = tester.widgetList<TextField>(beforeTfs).length;
-
-    await tester.tap(placeholder);
-    await tester.pumpAndSettle();
-
-    // 탭 후: TextField 추가됨 (라벨 인라인 편집).
-    final afterTfs = find.byType(TextField);
-    final afterCount = tester.widgetList<TextField>(afterTfs).length;
-    expect(afterCount, greaterThan(beforeCount));
+    final rowsLabeled = const [
+      EditableRow(id: 'r1', length: 600, width: 300, qty: 1, label: '12T 합판'),
+    ];
+    await tester.pumpWidget(_wrap(
+      notifier: notifier,
+      child: EditableDimensionTable(
+        rows: rowsLabeled,
+        onChanged: (_) {},
+        newId: () => 'new',
+      ),
+    ));
+    expect(find.text('12T 합판'), findsOneWidget);
   });
 
   testWidgets('drag handle visible when onReorder provided', (tester) async {

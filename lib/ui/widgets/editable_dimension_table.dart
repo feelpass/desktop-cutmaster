@@ -210,7 +210,6 @@ class _RowField extends StatefulWidget {
 class _RowFieldState extends State<_RowField> {
   late final TextEditingController _lenCtrl;
   late final TextEditingController _widCtrl;
-  late final TextEditingController _labelCtrl;
 
   @override
   void initState() {
@@ -219,14 +218,12 @@ class _RowFieldState extends State<_RowField> {
         text: widget.row.length == 0 ? '' : widget.row.length.toStringAsFixed(0));
     _widCtrl = TextEditingController(
         text: widget.row.width == 0 ? '' : widget.row.width.toStringAsFixed(0));
-    _labelCtrl = TextEditingController(text: widget.row.label);
   }
 
   @override
   void dispose() {
     _lenCtrl.dispose();
     _widCtrl.dispose();
-    _labelCtrl.dispose();
     super.dispose();
   }
 
@@ -296,15 +293,13 @@ class _RowFieldState extends State<_RowField> {
             ],
           ),
         ),
-        // 메타 줄
+        // 메타 줄 (라벨은 read-only — 편집은 프리셋에서만)
         _MetaLine(
           colorPresetId: widget.row.colorPresetId,
           grainDirection: widget.row.grainDirection,
-          labelCtrl: _labelCtrl,
+          label: widget.row.label,
           hasLeading: widget.leading != null,
           hasReorderHandle: widget.reorderIndex != null,
-          onLabelChanged: () =>
-              widget.onChanged(widget.row.copyWith(label: _labelCtrl.text)),
         ),
       ],
     );
@@ -334,35 +329,27 @@ class _RowFieldState extends State<_RowField> {
   }
 }
 
-/// 행의 메타 줄 — 색상 이름, 결방향, 라벨(인라인 편집).
-class _MetaLine extends ConsumerStatefulWidget {
+/// 행의 메타 줄 — 색상 이름, 결방향, 라벨 (읽기 전용).
+/// 라벨은 프리셋에서만 편집할 수 있고 행에서는 표시만 한다.
+class _MetaLine extends ConsumerWidget {
   const _MetaLine({
     required this.colorPresetId,
     required this.grainDirection,
-    required this.labelCtrl,
+    required this.label,
     required this.hasLeading,
     required this.hasReorderHandle,
-    required this.onLabelChanged,
   });
   final String? colorPresetId;
   final GrainDirection grainDirection;
-  final TextEditingController labelCtrl;
+  final String label;
   final bool hasLeading;
   final bool hasReorderHandle;
-  final VoidCallback onLabelChanged;
 
   @override
-  ConsumerState<_MetaLine> createState() => _MetaLineState();
-}
-
-class _MetaLineState extends ConsumerState<_MetaLine> {
-  bool _editing = false;
-
-  @override
-  Widget build(BuildContext context) {
-    final preset = widget.colorPresetId == null
+  Widget build(BuildContext context, WidgetRef ref) {
+    final preset = colorPresetId == null
         ? null
-        : ref.watch(presetsProvider).colorById(widget.colorPresetId);
+        : ref.watch(presetsProvider).colorById(colorPresetId);
 
     final colorText = preset?.name ?? '자동';
     final colorStyle = preset != null
@@ -377,7 +364,7 @@ class _MetaLineState extends ConsumerState<_MetaLine> {
             fontStyle: FontStyle.italic,
           );
 
-    final grainIcon = switch (widget.grainDirection) {
+    final grainIcon = switch (grainDirection) {
       GrainDirection.lengthwise =>
         const Icon(Icons.swap_horiz, size: 12, color: AppColors.textSecondary),
       GrainDirection.widthwise =>
@@ -387,8 +374,8 @@ class _MetaLineState extends ConsumerState<_MetaLine> {
 
     // 1줄과 동일한 prefix 폭으로 들여쓰기를 맞춰 length 컬럼 시작점에 정렬한다.
     //   drag handle: 24, leading swatch: 28(24 + 4 gap)
-    final reorderPad = widget.hasReorderHandle ? 24.0 : 0.0;
-    final leadingPad = widget.hasLeading ? 32.0 : 0.0;
+    final reorderPad = hasReorderHandle ? 24.0 : 0.0;
+    final leadingPad = hasLeading ? 32.0 : 0.0;
     final leftPad = reorderPad + leadingPad;
 
     return Padding(
@@ -406,46 +393,19 @@ class _MetaLineState extends ConsumerState<_MetaLine> {
                   TextStyle(fontSize: 11, color: AppColors.textSecondary)),
           const SizedBox(width: 6),
           Expanded(
-            child: _editing
-                ? SizedBox(
-                    height: 22,
-                    child: TextField(
-                      controller: widget.labelCtrl,
-                      autofocus: true,
-                      style: const TextStyle(fontSize: 11),
-                      decoration: const InputDecoration(
-                        isDense: true,
-                        contentPadding:
-                            EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                        border: OutlineInputBorder(),
-                      ),
-                      onSubmitted: (_) {
-                        widget.onLabelChanged();
-                        if (mounted) setState(() => _editing = false);
-                      },
-                      onEditingComplete: () {
-                        widget.onLabelChanged();
-                        if (mounted) setState(() => _editing = false);
-                      },
-                    ),
-                  )
-                : InkWell(
-                    onTap: () => setState(() => _editing = true),
-                    child: Text(
-                      widget.labelCtrl.text.isEmpty
-                          ? '라벨 추가...'
-                          : widget.labelCtrl.text,
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: widget.labelCtrl.text.isEmpty
-                            ? AppColors.textSecondary
-                            : AppColors.textPrimary,
-                        fontStyle: widget.labelCtrl.text.isEmpty
-                            ? FontStyle.italic
-                            : FontStyle.normal,
-                      ),
-                    ),
-                  ),
+            child: Text(
+              label.isEmpty ? '—' : label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 11,
+                color: label.isEmpty
+                    ? AppColors.textSecondary
+                    : AppColors.textPrimary,
+                fontStyle:
+                    label.isEmpty ? FontStyle.italic : FontStyle.normal,
+              ),
+            ),
           ),
         ],
       ),
