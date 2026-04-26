@@ -73,7 +73,7 @@ class EditableDimensionTable extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // header — 길이 / 폭 / 수량 (label은 메타줄로 이동)
+        // header — 가로 / 세로 / 수량 (모두 가운데 정렬)
         Padding(
           padding: const EdgeInsets.only(bottom: 4),
           child: Row(
@@ -82,19 +82,26 @@ class EditableDimensionTable extends StatelessWidget {
               if (hasLeading) const SizedBox(width: 28),
               Expanded(
                   flex: 2,
-                  child: Text(t.length, style: AppTextStyles.tableHeader)),
+                  child: Text(t.length,
+                      textAlign: TextAlign.center,
+                      style: AppTextStyles.tableHeader)),
               const SizedBox(width: 4),
               const SizedBox(width: 12), // × 기호 자리
               const SizedBox(width: 4),
               Expanded(
                   flex: 2,
-                  child: Text(t.width, style: AppTextStyles.tableHeader)),
+                  child: Text(t.width,
+                      textAlign: TextAlign.center,
+                      style: AppTextStyles.tableHeader)),
               const SizedBox(width: 6),
               SizedBox(
                   width: 80,
-                  child: Text(t.qty, style: AppTextStyles.tableHeader)),
+                  child: Text(t.qty,
+                      textAlign: TextAlign.center,
+                      style: AppTextStyles.tableHeader)),
               const SizedBox(width: 4),
-              const SizedBox(width: 28), // delete button 자리
+              const SizedBox(width: 28), // 회전 버튼 자리
+              const SizedBox(width: 28), // 삭제 버튼 자리
             ],
           ),
         ),
@@ -262,6 +269,25 @@ class _RowFieldState extends State<_RowField> {
               ),
               const SizedBox(width: 4),
               IconButton(
+                icon: const Icon(Icons.rotate_90_degrees_cw, size: 14),
+                tooltip: '가로/세로 바꾸기',
+                onPressed: () {
+                  final r = widget.row;
+                  final swapped = r.copyWith(length: r.width, width: r.length);
+                  // 컨트롤러도 즉시 갱신해 화면에 새 값이 보이도록
+                  _lenCtrl.text = swapped.length == 0
+                      ? ''
+                      : swapped.length.toStringAsFixed(0);
+                  _widCtrl.text = swapped.width == 0
+                      ? ''
+                      : swapped.width.toStringAsFixed(0);
+                  widget.onChanged(swapped);
+                },
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(maxHeight: 28, maxWidth: 28),
+                color: AppColors.textSecondary,
+              ),
+              IconButton(
                 icon: const Icon(Icons.close, size: 14),
                 tooltip: widget.deleteTooltip,
                 onPressed: widget.onDelete,
@@ -363,10 +389,6 @@ class _MetaLine extends ConsumerWidget {
         children: [
           Text(colorText, style: colorStyle),
           const SizedBox(width: 6),
-          if (grainIcon != null) ...[
-            grainIcon,
-            const SizedBox(width: 4),
-          ],
           const Text('·',
               style:
                   TextStyle(fontSize: 11, color: AppColors.textSecondary)),
@@ -386,6 +408,10 @@ class _MetaLine extends ConsumerWidget {
               ),
             ),
           ),
+          if (grainIcon != null) ...[
+            const SizedBox(width: 4),
+            grainIcon,
+          ],
         ],
       ),
     );
