@@ -48,9 +48,31 @@
 - macOS: [docs/INSTALL_MACOS.md](docs/INSTALL_MACOS.md)
 - Windows: [docs/INSTALL_WINDOWS.md](docs/INSTALL_WINDOWS.md)
 
+### 로컬 빌드 스크립트
+
+`scripts/`에 분석 + 테스트 + 빌드 + 패키징을 한 번에 처리하는 스크립트가 있습니다.
+
+```bash
+# macOS — .app + .dmg
+./scripts/build-macos.sh                # pubspec의 version 사용
+./scripts/build-macos.sh v0.2.1         # 버전 명시 (.dmg 파일명에 반영)
+./scripts/build-macos.sh --no-dmg       # .app만, 패키징 스킵
+```
+
+```powershell
+# Windows — .exe + .zip (PowerShell)
+.\scripts\build-windows.ps1                 # pubspec의 version 사용
+.\scripts\build-windows.ps1 -Version v0.2.1
+.\scripts\build-windows.ps1 -NoZip
+```
+
+산출물은 `release/` 폴더 (gitignored). 친구한테 그 안의 .dmg / .zip을 전달.
+
 ### Windows 자동 빌드 (GitHub Actions)
 
-- `git tag v0.x && git push --tags` → Windows runner가 자동 빌드 → Releases 페이지에 `cutmaster-windows.zip` 업로드.
+직접 빌드 없이 GitHub에 push하면 Windows runner가 자동 빌드합니다.
+
+- `git tag v0.x && git push --tags` → Releases 페이지에 `cutmaster-windows.zip` 자동 업로드.
 - Actions 탭 → "Build Windows" → "Run workflow"로 수동 트리거도 가능.
 
 ## 개발
