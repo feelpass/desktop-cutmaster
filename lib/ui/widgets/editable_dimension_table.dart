@@ -239,7 +239,7 @@ class _RowFieldState extends State<_RowField> {
                       cursor: SystemMouseCursors.grab,
                       child: Icon(
                         Icons.drag_indicator,
-                        size: 16,
+                        size: 20,
                         color: AppColors.textSecondary,
                       ),
                     ),
@@ -269,7 +269,7 @@ class _RowFieldState extends State<_RowField> {
               ),
               const SizedBox(width: 4),
               IconButton(
-                icon: const Icon(Icons.rotate_90_degrees_cw, size: 14),
+                icon: const Icon(Icons.rotate_90_degrees_cw, size: 18),
                 tooltip: '가로/세로 바꾸기',
                 onPressed: () {
                   final r = widget.row;
@@ -288,7 +288,7 @@ class _RowFieldState extends State<_RowField> {
                 color: AppColors.textSecondary,
               ),
               IconButton(
-                icon: const Icon(Icons.close, size: 14),
+                icon: const Icon(Icons.close, size: 18),
                 tooltip: widget.deleteTooltip,
                 onPressed: widget.onDelete,
                 padding: EdgeInsets.zero,
@@ -318,7 +318,7 @@ class _RowFieldState extends State<_RowField> {
         keyboardType: numeric
             ? const TextInputType.numberWithOptions(decimal: true)
             : TextInputType.text,
-        textAlign: numeric ? TextAlign.right : TextAlign.left,
+        textAlign: numeric ? TextAlign.center : TextAlign.left,
         style: AppTextStyles.tableCell,
         decoration: const InputDecoration(
           isDense: true,
@@ -359,21 +359,21 @@ class _MetaLine extends ConsumerWidget {
     final colorText = preset?.name ?? '자동';
     final colorStyle = preset != null
         ? const TextStyle(
-            fontSize: 11,
+            fontSize: 12,
             color: AppColors.textPrimary,
             fontWeight: FontWeight.w500,
           )
         : const TextStyle(
-            fontSize: 11,
+            fontSize: 12,
             color: AppColors.textSecondary,
             fontStyle: FontStyle.italic,
           );
 
     final grainIcon = switch (grainDirection) {
       GrainDirection.lengthwise =>
-        const Icon(Icons.swap_horiz, size: 12, color: AppColors.textSecondary),
+        const Icon(Icons.swap_horiz, size: 14, color: AppColors.textSecondary),
       GrainDirection.widthwise =>
-        const Icon(Icons.swap_vert, size: 12, color: AppColors.textSecondary),
+        const Icon(Icons.swap_vert, size: 14, color: AppColors.textSecondary),
       GrainDirection.none => null,
     };
 
@@ -399,7 +399,10 @@ class _MetaLine extends ConsumerWidget {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
-                fontSize: 11,
+                fontSize: 12,
+                fontWeight: label.isEmpty
+                    ? FontWeight.normal
+                    : FontWeight.w500,
                 color: label.isEmpty
                     ? AppColors.textSecondary
                     : AppColors.textPrimary,
