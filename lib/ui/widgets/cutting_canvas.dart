@@ -4,8 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../domain/models/cutting_plan.dart';
 import '../../domain/models/stock_sheet.dart';
 import '../providers/preset_provider.dart';
-import '../theme/app_colors.dart';
-import '../utils/part_color.dart';
+import '../utils/sheet_painter.dart';
 
 /// 시트 한 장의 재단 도면.
 ///
@@ -14,6 +13,8 @@ import '../utils/part_color.dart';
 /// `maxSheetLength`가 null이면 자기 폭을 가득 채움 (단일 시트일 때 유용).
 ///
 /// 자재 색상을 시트 배경 tint로, 부품 색상은 자기 색으로 그려서 시각 층 구분.
+/// 실제 painting은 [SheetPainter] (PNG export와 공유) 에 위임.
+/// live canvas는 부모 위젯이 별도로 자재명/치수 텍스트를 보여주므로 헤더 없음.
 class CuttingCanvas extends ConsumerWidget {
   const CuttingCanvas({
     super.key,
@@ -80,83 +81,13 @@ class _CuttingPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final scaleX = size.width / sheet.sheetLength;
-    final scaleY = size.height / sheet.sheetWidth;
-
-    // 시트 배경: 자재 색상의 옅은 tint (자재 식별, 부품 가독성 유지).
-    final stockColor = stock != null
-        ? resolveColor(
-            stock!.id,
-            colorLookup(stock!.colorPresetId),
-            ColorPalette.stock,
-          )
-        : AppColors.surface;
-    final bgColor = Color.lerp(Colors.white, stockColor, 0.35) ?? stockColor;
-    canvas.drawRect(Offset.zero & size, Paint()..color = bgColor);
-
-    // 시트 외곽 (자재 색상이 짙으면 그 색으로, 옅으면 default border)
-    final borderColor = stockColor.computeLuminance() < 0.7
-        ? stockColor
-        : AppColors.border;
-    canvas.drawRect(
-      Offset.zero & size,
-      Paint()
-        ..color = borderColor
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.5,
-    );
-
-    // 부품 그리기 — 각 부품의 색상 사용
-    for (final pp in sheet.placed) {
-      final rect = Rect.fromLTWH(
-        pp.x * scaleX,
-        pp.y * scaleY,
-        pp.drawLength * scaleX,
-        pp.drawWidth * scaleY,
-      );
-      final color = resolveColor(
-        pp.part.id,
-        colorLookup(pp.part.colorPresetId),
-        ColorPalette.part,
-      );
-      canvas.drawRect(rect, Paint()..color = color.withValues(alpha: 0.45));
-      canvas.drawRect(
-        rect,
-        Paint()
-          ..color = color
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 1.2,
-      );
-
-      if (showLabels) {
-        final dimText =
-            '${pp.drawLength.toStringAsFixed(0)}×${pp.drawWidth.toStringAsFixed(0)}';
-        final fullLabel = pp.part.label.isNotEmpty
-            ? '${pp.part.label}\n$dimText'
-            : dimText;
-        // 부품 색이 어두우면 흰 글자, 밝으면 검정 글자
-        final textColor = color.computeLuminance() < 0.5
-            ? Colors.white
-            : AppColors.textPrimary;
-        final tp = TextPainter(
-          text: TextSpan(
-            text: fullLabel,
-            style: TextStyle(color: textColor, fontSize: 10),
-          ),
-          textAlign: TextAlign.center,
-          textDirection: TextDirection.ltr,
-        )..layout(maxWidth: rect.width);
-        if (tp.height < rect.height && tp.width < rect.width) {
-          tp.paint(
-            canvas,
-            Offset(
-              rect.left + (rect.width - tp.width) / 2,
-              rect.top + (rect.height - tp.height) / 2,
-            ),
-          );
-        }
-      }
-    }
+    // 헤더 없이 (headerText: null) 시트만 그린다 — 부모 위젯에서 별도 텍스트.
+    SheetPainter(
+      sheet: sheet,
+      stock: stock,
+      showLabels: showLabels,
+      colorLookup: colorLookup,
+    ).paint(canvas, size);
   }
 
   @override
