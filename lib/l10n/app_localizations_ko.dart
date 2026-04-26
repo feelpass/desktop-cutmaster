@@ -87,6 +87,9 @@ class AppLocalizationsKo extends AppLocalizations {
   String get exportPng => 'PNG 내보내기';
 
   @override
+  String get exportPdf => 'PDF 내보내기';
+
+  @override
   String get materialUpdatedTitle => '자재가 변경되었습니다';
 
   @override

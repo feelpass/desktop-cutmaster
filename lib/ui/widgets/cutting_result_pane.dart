@@ -7,6 +7,7 @@ import '../providers/preset_provider.dart';
 import '../providers/tabs_provider.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_text_styles.dart';
+import '../utils/pdf_export.dart';
 import '../utils/png_export.dart';
 import 'cutting_canvas.dart';
 
@@ -68,6 +69,24 @@ class CuttingResultPane extends ConsumerWidget {
                       },
                 icon: const Icon(Icons.image_outlined, size: 16),
                 label: Text(t.exportPng),
+              ),
+              const SizedBox(width: 8),
+              OutlinedButton.icon(
+                onPressed: plan.sheets.isEmpty
+                    ? null
+                    : () {
+                        final presets = ref.read(presetsProvider);
+                        exportSheetsToPdf(
+                          context,
+                          plan,
+                          ref.read(tabsProvider).active!.project.stocks,
+                          showLabels,
+                          colorLookup: (id) =>
+                              id == null ? null : presets.colorById(id)?.argb,
+                        );
+                      },
+                icon: const Icon(Icons.picture_as_pdf, size: 16),
+                label: Text(t.exportPdf),
               ),
             ],
           ),

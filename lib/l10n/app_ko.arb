@@ -39,6 +39,7 @@
     }
   },
   "exportPng": "PNG 내보내기",
+  "exportPdf": "PDF 내보내기",
   "materialUpdatedTitle": "자재가 변경되었습니다",
   "materialUpdatedBody": "이 프로젝트도 변경된 자재로 다시 계산할까요?",
   "yes": "예",

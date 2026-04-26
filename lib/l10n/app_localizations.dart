@@ -242,6 +242,12 @@ abstract class AppLocalizations {
   /// **'PNG 내보내기'**
   String get exportPng;
 
+  /// No description provided for @exportPdf.
+  ///
+  /// In ko, this message translates to:
+  /// **'PDF 내보내기'**
+  String get exportPdf;
+
   /// No description provided for @materialUpdatedTitle.
   ///
   /// In ko, this message translates to:
