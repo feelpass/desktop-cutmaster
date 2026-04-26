@@ -117,29 +117,6 @@ class EditableDimensionTable extends StatelessWidget {
           )
         else
           ...List.generate(rows.length, buildRow),
-        // add row
-        Padding(
-          padding: const EdgeInsets.only(top: 4),
-          child: TextButton.icon(
-            onPressed: () {
-              final next = [
-                ...rows,
-                EditableRow(
-                  id: newId(),
-                  length: 0,
-                  width: 0,
-                  qty: 1,
-                  label: '',
-                  colorPresetId: null,
-                  grainDirection: GrainDirection.none,
-                ),
-              ];
-              onChanged(next);
-            },
-            icon: const Icon(Icons.add, size: 14),
-            label: Text(addRowTooltip),
-          ),
-        ),
       ],
     );
   }
@@ -268,10 +245,12 @@ class _RowFieldState extends State<_RowField> {
               ],
               Expanded(flex: 2, child: _cell(_lenCtrl, true)),
               const SizedBox(width: 4),
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 2),
-                child: Text('×',
-                    style: TextStyle(color: AppColors.textSecondary)),
+              const SizedBox(
+                width: 12,
+                child: Center(
+                  child: Text('×',
+                      style: TextStyle(color: AppColors.textSecondary)),
+                ),
               ),
               const SizedBox(width: 4),
               Expanded(flex: 2, child: _cell(_widCtrl, true)),

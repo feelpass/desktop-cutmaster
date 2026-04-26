@@ -84,8 +84,9 @@ class StocksTable extends ConsumerWidget {
           deleteRowTooltip: t.deleteRow,
         ),
         const SizedBox(height: 8),
-        Align(
-          alignment: Alignment.centerLeft,
+        SizedBox(
+          width: double.infinity,
+          height: 36,
           child: OutlinedButton.icon(
             onPressed: () async {
               final picked = await showPresetDialog(context, PresetKind.stock);
@@ -95,7 +96,7 @@ class StocksTable extends ConsumerWidget {
               }
             },
             icon: const Icon(Icons.add_box_outlined, size: 16),
-            label: Text(t.preset),
+            label: const Text('프리셋에서 추가'),
           ),
         ),
       ],
