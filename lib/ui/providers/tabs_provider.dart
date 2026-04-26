@@ -82,6 +82,12 @@ class TabsNotifier extends ChangeNotifier {
   int _idCounter = 0;
   bool _disposed = false;
 
+  /// 세션 (탭 메타데이터) 자동 저장용 디바운스 타이머.
+  /// 탭 추가/삭제/이동/active 변경 등 모든 mutator가 notifyListeners()를 호출하면
+  /// 1초 후에 [saveSession]을 실행 — dev 환경에서 hot restart / 강제 종료 시에도
+  /// 직전 1초 이내의 세션 상태가 디스크에 남아 다음 부팅 시 복원된다.
+  Timer? _sessionSaveTimer;
+
   /// 가장 최근에 발생한 외부 충돌 분기 알림 — Task 19에서 SnackBar로 surface.
   ConflictNotice? _lastConflict;
   ConflictNotice? get lastConflict => _lastConflict;
@@ -104,6 +110,21 @@ class TabsNotifier extends ChangeNotifier {
   String? get activeId => _activeId;
   TabState? get active =>
       _tabs.firstWhereOrNull((t) => t.id == _activeId);
+
+  @override
+  void notifyListeners() {
+    super.notifyListeners();
+    _scheduleSessionSave();
+  }
+
+  void _scheduleSessionSave() {
+    if (_disposed) return;
+    _sessionSaveTimer?.cancel();
+    _sessionSaveTimer = Timer(const Duration(seconds: 1), () {
+      if (_disposed) return;
+      saveSession();
+    });
+  }
 
   // === Tab lifecycle ===
 
@@ -624,6 +645,7 @@ class TabsNotifier extends ChangeNotifier {
   @override
   void dispose() {
     _disposed = true;
+    _sessionSaveTimer?.cancel();
     for (final t in _saveTimers.values) {
       t.cancel();
     }
