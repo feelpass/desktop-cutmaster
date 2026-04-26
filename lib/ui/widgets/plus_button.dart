@@ -20,7 +20,7 @@ class PlusButton extends ConsumerWidget {
         ref.watch(activeProjectProvider)?.showShortcutHints ?? true;
     final inkWell = InkWell(
       key: const ValueKey('plus-button'),
-      onTap: () => _showMenu(context, ref),
+      onTap: () => _showMenu(context, ref, showHints),
       borderRadius: const BorderRadius.vertical(top: Radius.circular(6)),
       child: const SizedBox(
         width: 36,
@@ -45,7 +45,8 @@ class PlusButton extends ConsumerWidget {
     );
   }
 
-  Future<void> _showMenu(BuildContext context, WidgetRef ref) async {
+  Future<void> _showMenu(
+      BuildContext context, WidgetRef ref, bool showHints) async {
     final notifier = ref.read(tabsProvider);
     // 메뉴 위치 계산용 RenderBox는 await 전에 캡처해 BuildContext를 async-gap
     // 너머로 들고 가지 않는다 (use_build_context_synchronously 회피).
@@ -71,20 +72,30 @@ class PlusButton extends ConsumerWidget {
       context: context,
       position: position,
       items: [
-        const PopupMenuItem(
+        PopupMenuItem(
           value: _PlusAction.newProject,
           child: Row(children: [
-            Icon(Icons.add, size: 16),
-            SizedBox(width: 8),
-            Text('새 프로젝트'),
+            const Icon(Icons.add, size: 16),
+            const SizedBox(width: 8),
+            const Text('새 프로젝트'),
+            if (showHints) ...[
+              const Spacer(),
+              const Text('⌘N',
+                  style: TextStyle(color: Colors.grey, fontSize: 11)),
+            ],
           ]),
         ),
-        const PopupMenuItem(
+        PopupMenuItem(
           value: _PlusAction.openFile,
           child: Row(children: [
-            Icon(Icons.folder_open, size: 16),
-            SizedBox(width: 8),
-            Text('파일에서 열기...'),
+            const Icon(Icons.folder_open, size: 16),
+            const SizedBox(width: 8),
+            const Text('파일에서 열기...'),
+            if (showHints) ...[
+              const Spacer(),
+              const Text('⌘O',
+                  style: TextStyle(color: Colors.grey, fontSize: 11)),
+            ],
           ]),
         ),
         if (recent.isNotEmpty) const PopupMenuDivider(),

@@ -69,6 +69,17 @@ class TopBar extends ConsumerWidget {
             icon: const Icon(Icons.save, color: AppColors.textOnHeader, size: 20),
             tooltip: saveTooltip,
           ),
+          if (showHints)
+            const Padding(
+              padding: EdgeInsets.only(left: 2, right: 6),
+              child: Text(
+                '⌘S',
+                style: TextStyle(
+                  color: AppColors.textOnHeader,
+                  fontSize: 11,
+                ),
+              ),
+            ),
           IconButton(
             key: const ValueKey('help-button'),
             onPressed: () => showShortcutsCheatsheet(context),
@@ -76,6 +87,17 @@ class TopBar extends ConsumerWidget {
                 color: AppColors.textOnHeader, size: 20),
             tooltip: '단축키 도움말 (?)',
           ),
+          if (showHints)
+            const Padding(
+              padding: EdgeInsets.only(left: 2, right: 6),
+              child: Text(
+                '?',
+                style: TextStyle(
+                  color: AppColors.textOnHeader,
+                  fontSize: 11,
+                ),
+              ),
+            ),
           IconButton(
             onPressed: () {},
             icon: const Icon(Icons.settings,
