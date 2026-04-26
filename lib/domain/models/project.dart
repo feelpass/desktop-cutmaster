@@ -13,11 +13,6 @@ class Project {
   final bool grainLocked;
   final bool showPartLabels;
   final bool useSingleSheet;
-
-  /// 단축키 안내 — UI의 일부 버튼에 단축키 힌트(예: ⌘S)를 노출할지 여부.
-  /// 기본 true (helpful by default). 키가 누락된 기존 v1/v2 파일도
-  /// fromJson에서 `?? true`로 받아 backward-compatible.
-  final bool showShortcutHints;
   final SolverMode solverMode;
   final StripDirection stripDirection;
   final int maxStages;
@@ -36,7 +31,6 @@ class Project {
     this.grainLocked = false,
     this.showPartLabels = true,
     this.useSingleSheet = false,
-    this.showShortcutHints = true,
     this.solverMode = SolverMode.ffd,
     this.stripDirection = StripDirection.auto,
     this.maxStages = 3,
@@ -60,7 +54,6 @@ class Project {
     bool? grainLocked,
     bool? showPartLabels,
     bool? useSingleSheet,
-    bool? showShortcutHints,
     SolverMode? solverMode,
     StripDirection? stripDirection,
     int? maxStages,
@@ -77,7 +70,6 @@ class Project {
         grainLocked: grainLocked ?? this.grainLocked,
         showPartLabels: showPartLabels ?? this.showPartLabels,
         useSingleSheet: useSingleSheet ?? this.useSingleSheet,
-        showShortcutHints: showShortcutHints ?? this.showShortcutHints,
         solverMode: solverMode ?? this.solverMode,
         stripDirection: stripDirection ?? this.stripDirection,
         maxStages: maxStages ?? this.maxStages,
@@ -105,7 +97,6 @@ class Project {
         'grainLocked': grainLocked,
         'showPartLabels': showPartLabels,
         'useSingleSheet': useSingleSheet,
-        'showShortcutHints': showShortcutHints,
         'stocks': stocks.map((s) => s.toJson()).toList(),
         'parts': parts.map((c) => c.toJson()).toList(),
         'solverMode': solverMode.name,
@@ -147,7 +138,6 @@ class Project {
       grainLocked: (j['grainLocked'] as bool?) ?? false,
       showPartLabels: (j['showPartLabels'] as bool?) ?? true,
       useSingleSheet: (j['useSingleSheet'] as bool?) ?? false,
-      showShortcutHints: (j['showShortcutHints'] as bool?) ?? true,
       solverMode: SolverMode.fromName(j['solverMode'] as String? ?? 'ffd'),
       stripDirection:
           StripDirection.fromName(j['stripDirection'] as String? ?? 'auto'),

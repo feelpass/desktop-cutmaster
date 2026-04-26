@@ -235,9 +235,6 @@ class TabsNotifier extends ChangeNotifier {
   void updateUseSingleSheet(String id, bool v) => _patch(
       id, (t) => t.copyWith(project: t.project.copyWith(useSingleSheet: v)));
 
-  void updateShowShortcutHints(String id, bool v) => _patch(id,
-      (t) => t.copyWith(project: t.project.copyWith(showShortcutHints: v)));
-
   void updateSolverMode(String id, SolverMode v) => _patch(
       id, (t) => t.copyWith(project: t.project.copyWith(solverMode: v)));
 
@@ -327,7 +324,6 @@ class TabsNotifier extends ChangeNotifier {
         grainLocked: tab.project.grainLocked,
         showPartLabels: tab.project.showPartLabels,
         useSingleSheet: tab.project.useSingleSheet,
-        showShortcutHints: tab.project.showShortcutHints,
         createdAt: DateTime.now(),
         updatedAt: DateTime.now(),
       );

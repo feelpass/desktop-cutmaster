@@ -24,7 +24,6 @@ void main() {
       grainLocked: true,
       showPartLabels: false,
       useSingleSheet: true,
-      showShortcutHints: false,
     );
 
     final json = orig.toJson();
@@ -39,7 +38,6 @@ void main() {
     expect(back.grainLocked, orig.grainLocked);
     expect(back.showPartLabels, orig.showPartLabels);
     expect(back.useSingleSheet, orig.useSingleSheet);
-    expect(back.showShortcutHints, orig.showShortcutHints);
     expect(back.createdAt, orig.createdAt);
   });
 
@@ -48,29 +46,6 @@ void main() {
       () => Project.fromJson({'schemaVersion': 999, 'id': 'x', 'name': 'y'}),
       throwsA(isA<FormatException>()),
     );
-  });
-
-  test('showShortcutHints defaults to true when missing from JSON', () {
-    // 기존 v2 파일에는 이 키가 없을 수 있다 — backward-compatible read 검증.
-    final json = {
-      'schemaVersion': 2,
-      'id': 'p1',
-      'name': 'legacy',
-      'kerf': 3,
-      'createdAt': DateTime.now().toIso8601String(),
-      'updatedAt': DateTime.now().toIso8601String(),
-    };
-    final p = Project.fromJson(json);
-    expect(p.showShortcutHints, true);
-  });
-
-  test('showShortcutHints round-trips with explicit false', () {
-    final orig = Project.create(id: 'p1', name: 'hints off')
-        .copyWith(showShortcutHints: false);
-    final json = orig.toJson();
-    expect(json['showShortcutHints'], false);
-    final back = Project.fromJson(json);
-    expect(back.showShortcutHints, false);
   });
 
   test('Project v3 roundtrip preserves new strip-cut fields', () {

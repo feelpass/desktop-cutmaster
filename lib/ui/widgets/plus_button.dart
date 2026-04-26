@@ -16,37 +16,32 @@ class PlusButton extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     // TabItem과 동일한 외곽 패딩/높이/모서리로 탭 외관을 흉내낸다.
-    final showHints =
-        ref.watch(activeProjectProvider)?.showShortcutHints ?? true;
-    final inkWell = InkWell(
-      key: const ValueKey('plus-button'),
-      onTap: () => _showMenu(context, ref, showHints),
-      borderRadius: const BorderRadius.vertical(top: Radius.circular(6)),
-      child: const SizedBox(
-        width: 36,
-        height: 36,
-        child: Center(
-          child: Icon(Icons.add, size: 18, color: AppColors.textOnHeader),
-        ),
-      ),
-    );
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 2),
       child: Material(
         color: Colors.white24,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(6)),
-        child: showHints
-            ? Tooltip(
-                message: '새 프로젝트 (⌘N) / 파일 열기 (⌘O)',
-                child: inkWell,
-              )
-            : inkWell,
+        child: Tooltip(
+          message: '새 프로젝트 / 파일 열기',
+          child: InkWell(
+            key: const ValueKey('plus-button'),
+            onTap: () => _showMenu(context, ref),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(6)),
+            child: const SizedBox(
+              width: 36,
+              height: 36,
+              child: Center(
+                child:
+                    Icon(Icons.add, size: 18, color: AppColors.textOnHeader),
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }
 
-  Future<void> _showMenu(
-      BuildContext context, WidgetRef ref, bool showHints) async {
+  Future<void> _showMenu(BuildContext context, WidgetRef ref) async {
     final notifier = ref.read(tabsProvider);
     // 메뉴 위치 계산용 RenderBox는 await 전에 캡처해 BuildContext를 async-gap
     // 너머로 들고 가지 않는다 (use_build_context_synchronously 회피).
@@ -72,30 +67,20 @@ class PlusButton extends ConsumerWidget {
       context: context,
       position: position,
       items: [
-        PopupMenuItem(
+        const PopupMenuItem(
           value: _PlusAction.newProject,
           child: Row(children: [
-            const Icon(Icons.add, size: 16),
-            const SizedBox(width: 8),
-            const Text('새 프로젝트'),
-            if (showHints) ...[
-              const Spacer(),
-              const Text('⌘N',
-                  style: TextStyle(color: Colors.grey, fontSize: 11)),
-            ],
+            Icon(Icons.add, size: 16),
+            SizedBox(width: 8),
+            Text('새 프로젝트'),
           ]),
         ),
-        PopupMenuItem(
+        const PopupMenuItem(
           value: _PlusAction.openFile,
           child: Row(children: [
-            const Icon(Icons.folder_open, size: 16),
-            const SizedBox(width: 8),
-            const Text('파일에서 열기...'),
-            if (showHints) ...[
-              const Spacer(),
-              const Text('⌘O',
-                  style: TextStyle(color: Colors.grey, fontSize: 11)),
-            ],
+            Icon(Icons.folder_open, size: 16),
+            SizedBox(width: 8),
+            Text('파일에서 열기...'),
           ]),
         ),
         if (recent.isNotEmpty) const PopupMenuDivider(),
