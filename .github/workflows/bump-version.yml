@@ -1,0 +1,108 @@
+name: Bump Version
+
+on:
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: 'patch | minor | major (version 입력 시 무시)'
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+        default: patch
+      version:
+        description: '명시적 semver (예: 0.2.0). 비우면 bump 적용'
+        required: false
+        default: ''
+
+jobs:
+  bump:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Compute new version
+        id: ver
+        run: |
+          set -euo pipefail
+          current=$(grep -E '^version:' pubspec.yaml | awk '{print $2}')
+          semver="${current%%+*}"
+          build="${current##*+}"
+          IFS='.' read -r major minor patch <<< "$semver"
+
+          override="${{ inputs.version }}"
+          if [ -n "$override" ]; then
+            if ! echo "$override" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+              echo "::error::version 입력 형식이 잘못됐습니다: '$override' (기대: X.Y.Z)"
+              exit 1
+            fi
+            new_semver="$override"
+          else
+            case "${{ inputs.bump }}" in
+              patch) patch=$((patch + 1)) ;;
+              minor) minor=$((minor + 1)); patch=0 ;;
+              major) major=$((major + 1)); minor=0; patch=0 ;;
+              *) echo "::error::알 수 없는 bump 종류"; exit 1 ;;
+            esac
+            new_semver="${major}.${minor}.${patch}"
+          fi
+
+          new_build=$((build + 1))
+          new_version="${new_semver}+${new_build}"
+          new_tag="v${new_semver}"
+
+          echo "current=$current" >> "$GITHUB_OUTPUT"
+          echo "new_version=$new_version" >> "$GITHUB_OUTPUT"
+          echo "new_tag=$new_tag" >> "$GITHUB_OUTPUT"
+          echo "::notice::$current → $new_version (tag: $new_tag)"
+
+      - name: Verify tag does not exist
+        run: |
+          set -euo pipefail
+          tag="${{ steps.ver.outputs.new_tag }}"
+          if git rev-parse "$tag" >/dev/null 2>&1; then
+            echo "::error::태그 $tag 가 이미 존재합니다"
+            exit 1
+          fi
+          if git ls-remote --exit-code --tags origin "$tag" >/dev/null 2>&1; then
+            echo "::error::원격에 태그 $tag 가 이미 존재합니다"
+            exit 1
+          fi
+
+      - name: Update pubspec.yaml
+        run: |
+          set -euo pipefail
+          sed -i "s/^version: .*/version: ${{ steps.ver.outputs.new_version }}/" pubspec.yaml
+          echo "--- pubspec.yaml version line ---"
+          grep '^version:' pubspec.yaml
+
+      - name: Commit, push, tag
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add pubspec.yaml
+          git commit -m "chore(release): bump version to ${{ steps.ver.outputs.new_version }}"
+          git push origin "HEAD:${{ github.ref_name }}"
+          git tag "${{ steps.ver.outputs.new_tag }}"
+          git push origin "${{ steps.ver.outputs.new_tag }}"
+
+      - name: Summary
+        run: |
+          {
+            echo "## Version bumped"
+            echo ""
+            echo "- 이전: \`${{ steps.ver.outputs.current }}\`"
+            echo "- 새 버전: \`${{ steps.ver.outputs.new_version }}\`"
+            echo "- 태그: \`${{ steps.ver.outputs.new_tag }}\`"
+            echo ""
+            echo "태그 push로 [Build Windows](../../actions/workflows/build-windows.yml) 워크플로우가 자동 트리거됩니다."
+            echo "완료 후 [Releases](../../releases/tag/${{ steps.ver.outputs.new_tag }})에서 zip을 받을 수 있습니다."
+          } >> "$GITHUB_STEP_SUMMARY"
