@@ -8,7 +8,6 @@ class CuttingPlan {
   final double efficiencyPercent;
 
   /// Auto-recommend 결과일 때만 채워짐. FFD/strip-cut(non-auto)에서는 둘 다 null.
-  /// UI(Task 20 chips)에서 winner와 runner-up 비교를 보여줄 때 사용.
   final CuttingPlan? runnerUp;
   final StripDirection? runnerUpDirection;
 
@@ -19,6 +18,19 @@ class CuttingPlan {
     this.runnerUp,
     this.runnerUpDirection,
   });
+
+  /// 모든 시트 자투리 중 가장 큰 단일 사각형 면적.
+  /// "큰 자투리 1개"가 의미 있는 재활용 자산이라는 사용자 멘탈모델 반영.
+  double get largestLeftoverArea {
+    var max = 0.0;
+    for (final s in sheets) {
+      for (final r in s.leftovers) {
+        final a = r.width * r.height;
+        if (a > max) max = a;
+      }
+    }
+    return max;
+  }
 }
 
 class SheetLayout {
@@ -28,12 +40,17 @@ class SheetLayout {
   final double sheetWidth;
   final CutSequence? cutSequence;
 
+  /// 솔버가 부품 배치 후 남긴 자유 사각형들 (재활용 가능 자투리).
+  /// 빈 리스트면 자투리 정보 미제공 (legacy/strip-cut 등).
+  final List<LeftoverRect> leftovers;
+
   const SheetLayout({
     required this.stockSheetId,
     required this.placed,
     required this.sheetLength,
     required this.sheetWidth,
     this.cutSequence,
+    this.leftovers = const [],
   });
 
   /// 이 시트에서 사용된 면적 비율 (0-100).
@@ -44,6 +61,34 @@ class SheetLayout {
         placed.fold<double>(0, (acc, p) => acc + p.part.length * p.part.width);
     return (used / total) * 100;
   }
+
+  /// 이 시트에서 가장 큰 단일 자투리 사각형. 없으면 null.
+  LeftoverRect? get largestLeftover {
+    LeftoverRect? best;
+    for (final r in leftovers) {
+      if (best == null || r.width * r.height > best.width * best.height) {
+        best = r;
+      }
+    }
+    return best;
+  }
+}
+
+/// 시트 위 자유(재활용 가능) 사각형. 솔버가 부품 배치 후 남은 영역.
+class LeftoverRect {
+  final double x;
+  final double y;
+  final double width;
+  final double height;
+
+  const LeftoverRect({
+    required this.x,
+    required this.y,
+    required this.width,
+    required this.height,
+  });
+
+  double get area => width * height;
 }
 
 class PlacedPart {
@@ -92,6 +137,36 @@ class Strip {
     required this.length,
     required this.segments,
   });
+}
+
+/// 시트의 절단 횟수 — strip-cut은 정확값(strip 수 + segment 수), FFD는
+/// 부품 경계에서 unique한 수직/수평 라인을 추정값으로 카운트.
+/// 후자는 휴리스틱이므로 UI에서 "≈" 마커와 함께 표시할 것.
+int estimateGuillotineCuts(SheetLayout s) {
+  final seq = s.cutSequence;
+  if (seq != null) {
+    var n = seq.strips.length;
+    for (final strip in seq.strips) {
+      n += strip.segments.length;
+    }
+    return n;
+  }
+  if (s.placed.isEmpty) return 0;
+  final xs = <int>{};
+  final ys = <int>{};
+  final l = s.sheetLength.round();
+  final w = s.sheetWidth.round();
+  for (final p in s.placed) {
+    final x1 = p.x.round();
+    final y1 = p.y.round();
+    final x2 = (p.x + p.drawLength).round();
+    final y2 = (p.y + p.drawWidth).round();
+    if (x1 > 0 && x1 < l) xs.add(x1);
+    if (x2 > 0 && x2 < l) xs.add(x2);
+    if (y1 > 0 && y1 < w) ys.add(y1);
+    if (y2 > 0 && y2 < w) ys.add(y2);
+  }
+  return xs.length + ys.length;
 }
 
 /// strip 내부에서 stage 2 절단으로 만들어진 segment.

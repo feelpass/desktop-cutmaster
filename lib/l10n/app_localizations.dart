@@ -248,6 +248,72 @@ abstract class AppLocalizations {
   /// **'PDF 내보내기'**
   String get exportPdf;
 
+  /// No description provided for @summaryEfficiency.
+  ///
+  /// In ko, this message translates to:
+  /// **'효율'**
+  String get summaryEfficiency;
+
+  /// No description provided for @summarySheetsLabel.
+  ///
+  /// In ko, this message translates to:
+  /// **'시트'**
+  String get summarySheetsLabel;
+
+  /// No description provided for @summaryPartsLabel.
+  ///
+  /// In ko, this message translates to:
+  /// **'부품'**
+  String get summaryPartsLabel;
+
+  /// No description provided for @summaryCutsLabel.
+  ///
+  /// In ko, this message translates to:
+  /// **'절단'**
+  String get summaryCutsLabel;
+
+  /// No description provided for @summaryAreaLabel.
+  ///
+  /// In ko, this message translates to:
+  /// **'사용 면적'**
+  String get summaryAreaLabel;
+
+  /// No description provided for @summaryUnplacedLabel.
+  ///
+  /// In ko, this message translates to:
+  /// **'미배치'**
+  String get summaryUnplacedLabel;
+
+  /// No description provided for @summaryMaterials.
+  ///
+  /// In ko, this message translates to:
+  /// **'재료 ({n})'**
+  String summaryMaterials(int n);
+
+  /// No description provided for @summaryPartGroups.
+  ///
+  /// In ko, this message translates to:
+  /// **'부품 ({n})'**
+  String summaryPartGroups(int n);
+
+  /// No description provided for @summarySheetUnit.
+  ///
+  /// In ko, this message translates to:
+  /// **'{n}매'**
+  String summarySheetUnit(int n);
+
+  /// No description provided for @summaryAreaM2.
+  ///
+  /// In ko, this message translates to:
+  /// **'{v} m²'**
+  String summaryAreaM2(String v);
+
+  /// No description provided for @summaryCutsEstimatedTooltip.
+  ///
+  /// In ko, this message translates to:
+  /// **'FFD 모드에서는 부품 경계에서 추정한 값'**
+  String get summaryCutsEstimatedTooltip;
+
   /// No description provided for @materialUpdatedTitle.
   ///
   /// In ko, this message translates to:

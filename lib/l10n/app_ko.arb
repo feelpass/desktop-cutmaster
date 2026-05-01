@@ -40,6 +40,37 @@
   },
   "exportPng": "PNG 내보내기",
   "exportPdf": "PDF 내보내기",
+  "summaryEfficiency": "효율",
+  "summarySheetsLabel": "시트",
+  "summaryPartsLabel": "부품",
+  "summaryCutsLabel": "절단",
+  "summaryAreaLabel": "사용 면적",
+  "summaryUnplacedLabel": "미배치",
+  "summaryMaterials": "재료 ({n})",
+  "@summaryMaterials": {
+    "placeholders": {
+      "n": {"type": "int"}
+    }
+  },
+  "summaryPartGroups": "부품 ({n})",
+  "@summaryPartGroups": {
+    "placeholders": {
+      "n": {"type": "int"}
+    }
+  },
+  "summarySheetUnit": "{n}매",
+  "@summarySheetUnit": {
+    "placeholders": {
+      "n": {"type": "int"}
+    }
+  },
+  "summaryAreaM2": "{v} m²",
+  "@summaryAreaM2": {
+    "placeholders": {
+      "v": {"type": "String"}
+    }
+  },
+  "summaryCutsEstimatedTooltip": "FFD 모드에서는 부품 경계에서 추정한 값",
   "materialUpdatedTitle": "자재가 변경되었습니다",
   "materialUpdatedBody": "이 프로젝트도 변경된 자재로 다시 계산할까요?",
   "yes": "예",

@@ -253,6 +253,31 @@ class TabsNotifier extends ChangeNotifier {
   void updateMinimizeWaste(String id, bool v) => _patch(
       id, (t) => t.copyWith(project: t.project.copyWith(minimizeWaste: v)));
 
+  void updateOrderNumber(String id, String v) => _patch(
+      id, (t) => t.copyWith(project: t.project.copyWith(orderNumber: v)));
+
+  void updateDueDate(String id, DateTime? v) => _patch(
+      id,
+      (t) => t.copyWith(
+          project: v == null
+              ? t.project.copyWith(clearDueDate: true)
+              : t.project.copyWith(dueDate: v)));
+
+  void updateMemo(String id, String v) =>
+      _patch(id, (t) => t.copyWith(project: t.project.copyWith(memo: v)));
+
+  void updateHeadcut(String id,
+          {double? top, double? bottom, double? left, double? right}) =>
+      _patch(
+          id,
+          (t) => t.copyWith(
+              project: t.project.copyWith(
+                headcutTop: top,
+                headcutBottom: bottom,
+                headcutLeft: left,
+                headcutRight: right,
+              )));
+
   void _patch(String id, TabState Function(TabState) f) {
     if (_disposed) return;
     _tabs = _tabs.map((t) {
@@ -272,6 +297,29 @@ class TabsNotifier extends ChangeNotifier {
     _saveAsInFlight[id] = future;
     future.whenComplete(() => _saveAsInFlight.remove(id));
     return future;
+  }
+
+  /// 사용자가 OS 탐색기에서 직접 고른 절대 경로에 첫 저장.
+  /// 이후 저장은 [saveAs]가 동일 경로에 덮어쓴다.
+  Future<String?> saveToPath(String id, String absolutePath) async {
+    _saveTimers.remove(id)?.cancel();
+    final tab = _tabs.firstWhereOrNull((t) => t.id == id);
+    if (tab == null) return null;
+
+    final pathWithExt = absolutePath.toLowerCase().endsWith('.cutmaster')
+        ? absolutePath
+        : '$absolutePath.cutmaster';
+
+    await files.overwrite(pathWithExt, tab.project);
+    final mtime = await File(pathWithExt).lastModified();
+
+    final autosaveFile = File(p.join(autosaveDir, '${tab.id}.cutmaster'));
+    if (autosaveFile.existsSync()) await autosaveFile.delete();
+
+    await workspace.touchRecentFile(pathWithExt, tab.project.name);
+    _setTab(id,
+        (t) => t.copyWith(filePath: pathWithExt, isDirty: false, mtime: mtime));
+    return pathWithExt;
   }
 
   Future<String?> _doSaveAs(String id, {String? overrideName}) async {

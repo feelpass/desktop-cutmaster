@@ -12,7 +12,8 @@ import 'package:cutmaster/data/preset/preset_repository.dart';
 import 'package:cutmaster/l10n/app_localizations.dart';
 import 'package:cutmaster/ui/providers/preset_provider.dart';
 import 'package:cutmaster/ui/providers/tabs_provider.dart';
-import 'package:cutmaster/ui/widgets/left_pane.dart';
+import 'package:cutmaster/ui/providers/theme_mode_provider.dart';
+import 'package:cutmaster/ui/widgets/top_bar.dart';
 
 class _FakePresetRepo extends PresetRepository {
   _FakePresetRepo() : super(filePath: '/dev/null/x');
@@ -32,9 +33,10 @@ void main() {
   late WorkspaceDb ws;
   late TabsNotifier tabs;
   late PresetsNotifier presets;
+  late ThemeModeNotifier themeMode;
 
   setUp(() async {
-    tmp = await Directory.systemTemp.createTemp('left_pane_');
+    tmp = await Directory.systemTemp.createTemp('top_bar_');
     ws = await WorkspaceDb.open(p.join(tmp.path, 'workspace.db'));
     tabs = TabsNotifier(
       workspace: ws,
@@ -43,11 +45,12 @@ void main() {
       defaultProjectsDir: tmp.path,
       saveDebounce: const Duration(milliseconds: 1),
     );
-    // LeftPane's children watch activeProjectProvider with `!` — need a tab.
     tabs.newUntitled();
 
     presets = PresetsNotifier(_FakePresetRepo());
     await presets.load();
+
+    themeMode = ThemeModeNotifier(ws, ThemeMode.light);
   });
 
   tearDown(() async {
@@ -59,43 +62,66 @@ void main() {
         overrides: [
           tabsProvider.overrideWith((_) => tabs),
           presetsProvider.overrideWith((_) => presets),
+          themeModeProvider.overrideWith((_) => themeMode),
         ],
         child: MaterialApp(
           localizationsDelegates: AppLocalizations.localizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           locale: const Locale('ko'),
-          home: const Scaffold(body: LeftPane()),
+          home: const Scaffold(body: TopBar()),
         ),
       );
 
-  testWidgets(
-      'header has settings button for parts only (not order/conditions)',
+  testWidgets('renders save split-button — main 저장 + dropdown chevron',
       (tester) async {
-    // 부품 섹션이 3번째 — 800×600 기본 뷰포트로는 ListView lazy build에서 빠진다.
-    tester.view.physicalSize = const Size(1440, 4000);
+    // TopBar는 가로로 길어서 좁은 뷰포트에서 overflow가 난다 — 데스크탑 폭 사용.
+    tester.view.physicalSize = const Size(1600, 600);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.resetPhysicalSize);
 
     await tester.pumpWidget(pump());
     await tester.pumpAndSettle();
 
-    expect(find.byTooltip('프리셋 관리'), findsOneWidget);
+    // 메인 저장 버튼 라벨이 보인다.
+    expect(find.text('저장'), findsOneWidget);
+    // 드롭다운 chevron InkWell이 ValueKey로 식별 가능.
+    expect(find.byKey(const ValueKey('save-as-dropdown')), findsOneWidget);
   });
 
   testWidgets(
-      'tapping parts settings opens part preset management dialog',
+      'tapping the dropdown chevron opens menu with "다른 이름으로 저장..."',
       (tester) async {
-    tester.view.physicalSize = const Size(1440, 4000);
+    tester.view.physicalSize = const Size(1600, 600);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.resetPhysicalSize);
 
     await tester.pumpWidget(pump());
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byTooltip('프리셋 관리'));
+    await tester.tap(find.byKey(const ValueKey('save-as-dropdown')));
     await tester.pumpAndSettle();
 
-    expect(find.text('부품 프리셋 관리'), findsOneWidget);
+    // PopupMenu 항목 — 메뉴 아이템과 단축키 hint 모두 노출.
+    expect(find.text('다른 이름으로 저장...'), findsOneWidget);
+    expect(find.text('⇧⌘S'), findsOneWidget);
   });
 
+  testWidgets('save dropdown menu dismisses when tapped outside',
+      (tester) async {
+    tester.view.physicalSize = const Size(1600, 600);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+
+    await tester.pumpWidget(pump());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const ValueKey('save-as-dropdown')));
+    await tester.pumpAndSettle();
+    expect(find.text('다른 이름으로 저장...'), findsOneWidget);
+
+    // 메뉴 바깥 영역(좌상단 스캐폴드 가장자리)을 탭 — 메뉴 dismiss.
+    await tester.tapAt(const Offset(10, 10));
+    await tester.pumpAndSettle();
+    expect(find.text('다른 이름으로 저장...'), findsNothing);
+  });
 }

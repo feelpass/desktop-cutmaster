@@ -28,7 +28,7 @@ class CutmasterTabBar extends ConsumerWidget {
     // perf TODO: 탭이 매우 많아지면 (e.g. 50+) per-tab family provider로 분리
 
     return Container(
-      color: AppColors.header,
+      color: context.colors.header,
       // 데스크탑에서 가로 스크롤 영역에 자동으로 붙는 스크롤바가
       // 탭 영역을 가리지 않도록 비활성화한다.
       child: ScrollConfiguration(

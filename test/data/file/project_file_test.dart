@@ -110,6 +110,55 @@ void main() {
     expect(res.mtime, isA<DateTime>());
   });
 
+  // 사용자가 NSSavePanel로 새 경로를 picker한 직후 첫 저장 시뮬레이션 —
+  // overwrite를 한 번도 본 적 없는 fresh path. 가장 흔한 Save As 진입점이므로
+  // 회귀 안 나도록 명시적으로 검증.
+  test('overwrite to a fresh path that does not yet exist', () async {
+    final svc = ProjectFileService();
+    final p0 = Project.create(id: 'a', name: '책장');
+    final freshPath = p.join(tmp.path, '아직-없는-파일.cutmaster');
+
+    expect(File(freshPath).existsSync(), false);
+    await svc.overwrite(freshPath, p0);
+
+    expect(File(freshPath).existsSync(), true);
+    final loaded = await svc.read(freshPath);
+    expect(loaded.name, '책장');
+  });
+
+  // macOS sandbox 회귀 가드: `.tmp` 사이드 파일 쓰기가 막힌 상황을 호스트에서
+  // 시뮬레이션 — 부모 디렉토리에서 쓰기 권한을 빼앗고 destination에는 쓸 수
+  // 있게 한 뒤, overwrite가 fallback path로 성공하는지 확인.
+  //
+  // 실제 macOS sandbox 환경(`files.user-selected.read-write`)에서는 user-selected
+  // URL 한 개에만 write가 허가되어 sibling `.tmp` 쓰기가 실패한다. 이 테스트는
+  // 그 상황을 chmod로 흉내낸다.
+  test('overwrite falls back to direct write when .tmp is blocked', () async {
+    if (Platform.isWindows) return; // chmod-기반 시뮬레이션은 POSIX 한정
+    final svc = ProjectFileService();
+    final p0 = Project.create(id: 'a', name: '책장');
+
+    // 1) 먼저 정상 경로로 한 번 쓴다.
+    final path = await svc.writeNew(
+        folder: tmp.path, baseName: 'sandboxed', project: p0);
+    expect(File(path).existsSync(), true);
+
+    // 2) 부모 디렉토리를 r-x로 잠가 새 파일(`.tmp`) 생성을 막는다.
+    //    기존 파일에 대한 write는 inode 단위라 여전히 가능.
+    final dir = Directory(tmp.path);
+    await Process.run('chmod', ['555', dir.path]);
+    addTearDown(() async {
+      await Process.run('chmod', ['755', dir.path]);
+    });
+
+    // 3) `.tmp` 새 파일 생성이 막혀도 overwrite는 fallback으로 성공해야 한다.
+    final updated = p0.copyWith(kerf: 9);
+    await svc.overwrite(path, updated);
+
+    final loaded = await svc.read(path);
+    expect(loaded.kerf, 9);
+  });
+
   group('sanitizeBaseName', () {
     test('strips forbidden chars', () {
       expect(ProjectFileService.sanitizeBaseName(r'a/b\c:d*e?f"g<h>i|j'), 'abcdefghij');

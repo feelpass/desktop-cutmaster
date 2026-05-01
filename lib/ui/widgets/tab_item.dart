@@ -93,8 +93,11 @@ class _TabItemState extends State<TabItem> {
 
   @override
   Widget build(BuildContext context) {
-    final bg = widget.isActive ? Colors.white : Colors.white24;
-    final fg = widget.isActive ? Colors.black87 : AppColors.textOnHeader;
+    final c = context.colors;
+    final bg = widget.isActive
+        ? c.background
+        : c.textOnHeader.withValues(alpha: 0.08);
+    final fg = widget.isActive ? c.textPrimary : c.textOnHeader;
     return InkWell(
       onTap: widget.onTap,
       child: Container(

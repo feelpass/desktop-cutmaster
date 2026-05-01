@@ -63,6 +63,7 @@ class _PresetSelectorDialog extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final notifier = ref.watch(presetsProvider);
     final list = _collection(notifier);
+    final pal = context.colors;
 
     return AlertDialog(
       title: Text(_title),
@@ -70,11 +71,12 @@ class _PresetSelectorDialog extends ConsumerWidget {
       content: SizedBox(
         width: 360,
         child: list.isEmpty
-            ? const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+            ? Padding(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
                 child: Text(
                   '아직 등록된 프리셋이 없습니다. 아래 "프리셋 관리..."로 추가하세요.',
-                  style: TextStyle(color: AppColors.textSecondary),
+                  style: TextStyle(color: pal.textSecondary),
                 ),
               )
             : SingleChildScrollView(
@@ -100,8 +102,8 @@ class _PresetSelectorDialog extends ConsumerWidget {
                               const SizedBox(width: 12),
                               Text(
                                 '${_fmt(p.length)} × ${_fmt(p.width)}',
-                                style: const TextStyle(
-                                  color: AppColors.textSecondary,
+                                style: TextStyle(
+                                  color: pal.textSecondary,
                                 ),
                               ),
                             ],

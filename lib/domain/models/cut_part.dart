@@ -8,6 +8,21 @@ class CutPart {
   final String label;
   final GrainDirection grainDirection;
   final String? colorPresetId;
+  final double thickness;
+  final int priority;
+
+  /// CSV의 EDGE1~4 (4면 엣지 자재). 빈 문자열은 "엣지 없음".
+  /// 길이는 항상 4 — 엣지 없으면 ''로 채워둔다. (관행적 매핑: 0=상, 1=하, 2=좌, 3=우)
+  final List<String> edges;
+
+  /// CSV의 FILE — 도면 파일명/식별자.
+  final String fileName;
+
+  /// CSV의 GROOVE — 홈 가공 메타. 보통 빈 문자열.
+  final String groove;
+
+  /// 사용자 메모. CSV에는 없고 UI에서 직접 입력.
+  final String memo;
 
   const CutPart({
     required this.id,
@@ -17,6 +32,12 @@ class CutPart {
     this.label = '',
     this.grainDirection = GrainDirection.none,
     this.colorPresetId,
+    this.thickness = 18,
+    this.priority = 1,
+    this.edges = const ['', '', '', ''],
+    this.fileName = '',
+    this.groove = '',
+    this.memo = '',
   });
 
   CutPart copyWith({
@@ -28,6 +49,12 @@ class CutPart {
     GrainDirection? grainDirection,
     String? colorPresetId,
     bool clearColor = false,
+    double? thickness,
+    int? priority,
+    List<String>? edges,
+    String? fileName,
+    String? groove,
+    String? memo,
   }) =>
       CutPart(
         id: id ?? this.id,
@@ -38,7 +65,16 @@ class CutPart {
         grainDirection: grainDirection ?? this.grainDirection,
         colorPresetId:
             clearColor ? null : (colorPresetId ?? this.colorPresetId),
+        thickness: thickness ?? this.thickness,
+        priority: priority ?? this.priority,
+        edges: edges ?? this.edges,
+        fileName: fileName ?? this.fileName,
+        groove: groove ?? this.groove,
+        memo: memo ?? this.memo,
       );
+
+  /// 4면 중 하나라도 엣지가 있으면 true.
+  bool get hasAnyEdge => edges.any((e) => e.isNotEmpty);
 
   Map<String, dynamic> toJson() => {
         'id': id,
@@ -48,10 +84,14 @@ class CutPart {
         'label': label,
         'grain': grainDirection.name,
         if (colorPresetId != null) 'colorPresetId': colorPresetId,
+        'thickness': thickness,
+        'priority': priority,
+        if (hasAnyEdge) 'edges': edges,
+        if (fileName.isNotEmpty) 'fileName': fileName,
+        if (groove.isNotEmpty) 'groove': groove,
+        if (memo.isNotEmpty) 'memo': memo,
       };
 
-  /// fromJson는 마이그레이션을 위해 [colorMatcher]를 받는다 — 옛 `color: int`
-  /// 필드가 보이면 매칭되는 ColorPreset.id를 반환할 책임이 호출자에게 있다.
   factory CutPart.fromJson(
     Map<String, dynamic> j, {
     String? Function(int argb)? colorMatcher,
@@ -60,6 +100,13 @@ class CutPart {
     if (cpid == null && j['color'] is int && colorMatcher != null) {
       cpid = colorMatcher(j['color'] as int);
     }
+    final edgesJson = j['edges'];
+    final edges = edgesJson is List
+        ? List<String>.generate(
+            4,
+            (i) => i < edgesJson.length ? (edgesJson[i] as String? ?? '') : '',
+          )
+        : const ['', '', '', ''];
     return CutPart(
       id: j['id'] as String,
       length: (j['length'] as num).toDouble(),
@@ -69,21 +116,50 @@ class CutPart {
       grainDirection:
           GrainDirection.values.byName((j['grain'] as String?) ?? 'none'),
       colorPresetId: cpid,
+      thickness: ((j['thickness'] as num?) ?? 18).toDouble(),
+      priority: (j['priority'] as int?) ?? 1,
+      edges: edges,
+      fileName: (j['fileName'] as String?) ?? '',
+      groove: (j['groove'] as String?) ?? '',
+      memo: (j['memo'] as String?) ?? '',
     );
   }
 
   @override
-  bool operator ==(Object other) =>
-      other is CutPart &&
-      other.id == id &&
-      other.length == length &&
-      other.width == width &&
-      other.qty == qty &&
-      other.label == label &&
-      other.grainDirection == grainDirection &&
-      other.colorPresetId == colorPresetId;
+  bool operator ==(Object other) {
+    if (other is! CutPart) return false;
+    if (other.edges.length != edges.length) return false;
+    for (var i = 0; i < edges.length; i++) {
+      if (other.edges[i] != edges[i]) return false;
+    }
+    return other.id == id &&
+        other.length == length &&
+        other.width == width &&
+        other.qty == qty &&
+        other.label == label &&
+        other.grainDirection == grainDirection &&
+        other.colorPresetId == colorPresetId &&
+        other.thickness == thickness &&
+        other.priority == priority &&
+        other.fileName == fileName &&
+        other.groove == groove &&
+        other.memo == memo;
+  }
 
   @override
-  int get hashCode =>
-      Object.hash(id, length, width, qty, label, grainDirection, colorPresetId);
+  int get hashCode => Object.hash(
+        id,
+        length,
+        width,
+        qty,
+        label,
+        grainDirection,
+        colorPresetId,
+        thickness,
+        priority,
+        Object.hashAll(edges),
+        fileName,
+        groove,
+        memo,
+      );
 }

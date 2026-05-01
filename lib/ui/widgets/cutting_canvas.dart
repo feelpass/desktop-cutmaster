@@ -22,12 +22,20 @@ class CuttingCanvas extends ConsumerWidget {
     required this.stock,
     required this.showLabels,
     this.maxSheetLength,
+    this.headcutTop = 0,
+    this.headcutBottom = 0,
+    this.headcutLeft = 0,
+    this.headcutRight = 0,
   });
 
   final SheetLayout sheet;
   final StockSheet? stock;
   final bool showLabels;
   final double? maxSheetLength;
+  final double headcutTop;
+  final double headcutBottom;
+  final double headcutLeft;
+  final double headcutRight;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -37,7 +45,6 @@ class CuttingCanvas extends ConsumerWidget {
 
     return LayoutBuilder(
       builder: (ctx, constraints) {
-        // available width = 부모로부터 받은 max width
         final available = constraints.maxWidth;
         final widthFraction = (maxSheetLength == null || maxSheetLength == 0)
             ? 1.0
@@ -57,6 +64,10 @@ class CuttingCanvas extends ConsumerWidget {
                 stock: stock,
                 showLabels: showLabels,
                 colorLookup: lookup,
+                headcutTop: headcutTop,
+                headcutBottom: headcutBottom,
+                headcutLeft: headcutLeft,
+                headcutRight: headcutRight,
               ),
             ),
           ),
@@ -72,27 +83,75 @@ class _CuttingPainter extends CustomPainter {
     required this.stock,
     required this.showLabels,
     required this.colorLookup,
+    required this.headcutTop,
+    required this.headcutBottom,
+    required this.headcutLeft,
+    required this.headcutRight,
   });
 
   final SheetLayout sheet;
   final StockSheet? stock;
   final bool showLabels;
   final int? Function(String? colorPresetId) colorLookup;
+  final double headcutTop;
+  final double headcutBottom;
+  final double headcutLeft;
+  final double headcutRight;
 
   @override
   void paint(Canvas canvas, Size size) {
-    // 헤더 없이 (headerText: null) 시트만 그린다 — 부모 위젯에서 별도 텍스트.
     SheetPainter(
       sheet: sheet,
       stock: stock,
       showLabels: showLabels,
       colorLookup: colorLookup,
     ).paint(canvas, size);
+    _paintHeadcut(canvas, size);
+  }
+
+  /// 헤드컷 영역에 빗금 음영을 그려 "잘려나갈 부분" 시각화.
+  void _paintHeadcut(Canvas canvas, Size size) {
+    if (sheet.sheetLength <= 0 || sheet.sheetWidth <= 0) return;
+    final scaleX = size.width / sheet.sheetLength;
+    final scaleY = size.height / sheet.sheetWidth;
+
+    final fill = Paint()
+      ..color = const Color(0x33EF4444) // semi-transparent red
+      ..style = PaintingStyle.fill;
+    final border = Paint()
+      ..color = const Color(0xFFEF4444)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1;
+
+    void band(Rect r) {
+      if (r.width <= 0 || r.height <= 0) return;
+      canvas.drawRect(r, fill);
+      canvas.drawRect(r, border);
+    }
+
+    if (headcutTop > 0) {
+      band(Rect.fromLTWH(0, 0, size.width, headcutTop * scaleY));
+    }
+    if (headcutBottom > 0) {
+      band(Rect.fromLTWH(
+          0, size.height - headcutBottom * scaleY, size.width, headcutBottom * scaleY));
+    }
+    if (headcutLeft > 0) {
+      band(Rect.fromLTWH(0, 0, headcutLeft * scaleX, size.height));
+    }
+    if (headcutRight > 0) {
+      band(Rect.fromLTWH(size.width - headcutRight * scaleX, 0,
+          headcutRight * scaleX, size.height));
+    }
   }
 
   @override
   bool shouldRepaint(covariant _CuttingPainter old) =>
       old.sheet != sheet ||
       old.stock != stock ||
-      old.showLabels != showLabels;
+      old.showLabels != showLabels ||
+      old.headcutTop != headcutTop ||
+      old.headcutBottom != headcutBottom ||
+      old.headcutLeft != headcutLeft ||
+      old.headcutRight != headcutRight;
 }

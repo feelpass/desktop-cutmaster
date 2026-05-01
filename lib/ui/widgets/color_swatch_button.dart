@@ -35,6 +35,7 @@ class ColorSwatchButton extends ConsumerWidget {
         : presets.colorById(colorPresetId)?.argb;
     final color = resolveColor(entityId, argb, palette);
     final isAuto = argb == null;
+    final pal = context.colors;
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -54,7 +55,7 @@ class ColorSwatchButton extends ConsumerWidget {
             color: color,
             borderRadius: BorderRadius.circular(4),
             border: Border.all(
-              color: isAuto ? AppColors.border : AppColors.textPrimary,
+              color: isAuto ? pal.border : pal.textPrimary,
               width: isAuto ? 1 : 1.5,
             ),
           ),
@@ -66,7 +67,7 @@ class ColorSwatchButton extends ConsumerWidget {
                     height: 4,
                     decoration: BoxDecoration(
                       color: color.computeLuminance() > 0.5
-                          ? AppColors.textSecondary
+                          ? pal.textSecondary
                           : Colors.white,
                       shape: BoxShape.circle,
                     ),

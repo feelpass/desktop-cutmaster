@@ -17,6 +17,7 @@ import 'l10n/app_localizations.dart';
 import 'ui/main_screen.dart';
 import 'ui/providers/preset_provider.dart';
 import 'ui/providers/tabs_provider.dart';
+import 'ui/providers/theme_mode_provider.dart';
 import 'ui/theme/app_theme.dart';
 
 Future<void> main() async {
@@ -68,10 +69,14 @@ Future<void> main() async {
   await notifier.restoreSession();
   if (notifier.tabs.isEmpty) notifier.newUntitled();
 
+  final initialThemeMode = await ThemeModeNotifier.loadInitial(ws);
+  final themeNotifier = ThemeModeNotifier(ws, initialThemeMode);
+
   runApp(ProviderScope(
     overrides: [
       tabsProvider.overrideWith((_) => notifier),
       presetsProvider.overrideWith((_) => presetsNotifier),
+      themeModeProvider.overrideWith((_) => themeNotifier),
     ],
     child: const CutmasterApp(),
   ));
@@ -111,9 +116,12 @@ class _CutmasterAppState extends ConsumerState<CutmasterApp>
 
   @override
   Widget build(BuildContext context) {
+    final themeMode = ref.watch(themeModeProvider);
     return MaterialApp(
       onGenerateTitle: (ctx) => AppLocalizations.of(ctx).appTitle,
       theme: AppTheme.light(),
+      darkTheme: AppTheme.dark(),
+      themeMode: themeMode,
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
       locale: const Locale('ko'),

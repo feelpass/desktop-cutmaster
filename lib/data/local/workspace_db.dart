@@ -54,7 +54,7 @@ class WorkspaceDb {
     final db = await databaseFactory.openDatabase(
       path,
       options: OpenDatabaseOptions(
-        version: 1,
+        version: 2,
         onCreate: _onCreate,
         onUpgrade: _onUpgrade,
       ),
@@ -92,10 +92,23 @@ class WorkspaceDb {
         'CREATE INDEX idx_recent_last_opened ON recent_file(last_opened_at DESC)');
     await db.execute(
         'CREATE INDEX idx_closed_at ON closed_tab(closed_at DESC)');
+    await db.execute('''
+      CREATE TABLE setting (
+        key TEXT PRIMARY KEY,
+        value TEXT NOT NULL
+      )
+    ''');
   }
 
   static Future<void> _onUpgrade(Database db, int from, int to) async {
-    // v2+ 마이그레이션은 여기에 추가
+    if (from < 2) {
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS setting (
+          key TEXT PRIMARY KEY,
+          value TEXT NOT NULL
+        )
+      ''');
+    }
   }
 
   Future<void> close() => _db.close();
@@ -226,6 +239,21 @@ class WorkspaceDb {
     });
     return removed.map(_toClosedRow).toList();
   }
+
+  // === Settings (KV) ===
+
+  Future<String?> getSetting(String key) async {
+    final rows = await _db.query('setting',
+        where: 'key = ?', whereArgs: [key], limit: 1);
+    if (rows.isEmpty) return null;
+    return rows.first['value'] as String?;
+  }
+
+  Future<void> setSetting(String key, String value) => _db.insert(
+        'setting',
+        {'key': key, 'value': value},
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
 
   // === mappers ===
 

@@ -27,7 +27,7 @@ void main() {
     );
 
     final json = orig.toJson();
-    expect(json['schemaVersion'], 3);
+    expect(json['schemaVersion'], 4);
 
     final back = Project.fromJson(json);
     expect(back.id, orig.id);
@@ -59,7 +59,7 @@ void main() {
     );
 
     final json = orig.toJson();
-    expect(json['schemaVersion'], 3);
+    expect(json['schemaVersion'], 4);
     expect(json['solverMode'], 'stripCut');
     expect(json['stripDirection'], 'horizontalFirst');
     expect(json['maxStages'], 4);

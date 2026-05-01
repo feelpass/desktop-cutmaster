@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../domain/models/cutting_plan.dart';
 import '../../domain/models/stock_sheet.dart';
+import '../theme/app_colors.dart';
 import 'part_color.dart';
 
 /// 시트 한 장(자재 배경 + 배치된 부품 + 선택적 라벨 + 선택적 헤더 텍스트)을
@@ -55,9 +56,10 @@ class SheetPainter {
       text: TextSpan(
         text: headerText,
         style: const TextStyle(
-          color: Color(0xFF555555),
+          color: AppColors.textSecondary,
           fontSize: 11,
           fontWeight: FontWeight.w500,
+          letterSpacing: -0.11,
         ),
       ),
       textDirection: TextDirection.ltr,
@@ -80,7 +82,7 @@ class SheetPainter {
             colorLookup(stock!.colorPresetId),
             ColorPalette.stock,
           )
-        : const Color(0xFFF5F5F7);
+        : AppColors.surface;
 
     // 1) 시트 배경: 자재 색을 흰색과 0.20 lerp — 옅은 tint (부품이 잘 보이도록).
     final bgColor = Color.lerp(Colors.white, stockColor, 0.20) ?? stockColor;
@@ -90,7 +92,7 @@ class SheetPainter {
     //   바깥쪽: stock 색 2.5px (너무 옅으면 fallback 회색).
     final outerBorderColor = stockColor.computeLuminance() < 0.7
         ? stockColor
-        : const Color(0xFFE5E5E5);
+        : AppColors.border;
     canvas.drawRect(
       rect,
       Paint()
@@ -150,7 +152,7 @@ class SheetPainter {
 
     // 텍스트는 항상 검정 — 부품 색에 관계없이 통일. 흰색 outline(3.5px)이
     // 어두운 부품 색 위에서도 가독성을 보장한다.
-    const textColor = Color(0xFF1A1A1A);
+    const textColor = AppColors.textPrimary;
 
     const dimFontSize = 15.0;
     const nameFontSize = 17.0;
