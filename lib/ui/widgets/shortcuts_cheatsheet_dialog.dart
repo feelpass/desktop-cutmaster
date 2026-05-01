@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../providers/app_info_provider.dart';
 
 /// 단축키 치트시트 — 현재 코드베이스에서 사용 중인 단축키를 한 화면에 보여준다.
 /// `lib/ui/main_screen.dart`의 `Shortcuts` 정의가 진실의 원천이지만, 사용자에게
@@ -17,17 +20,19 @@ const List<(String, String)> _shortcuts = [
   ('이름 변경 취소', 'Esc'),
 ];
 
-class ShortcutsCheatsheetDialog extends StatelessWidget {
+class ShortcutsCheatsheetDialog extends ConsumerWidget {
   const ShortcutsCheatsheetDialog({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final versionAsync = ref.watch(appVersionProvider);
     return AlertDialog(
       title: const Text('단축키'),
       content: SizedBox(
         width: 320,
         child: Column(
           mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             for (final (label, key) in _shortcuts)
               Padding(
@@ -45,6 +50,10 @@ class ShortcutsCheatsheetDialog extends StatelessWidget {
                   ],
                 ),
               ),
+            const SizedBox(height: 12),
+            const Divider(height: 1),
+            const SizedBox(height: 8),
+            _VersionFooter(versionAsync: versionAsync),
           ],
         ),
       ),
@@ -52,6 +61,34 @@ class ShortcutsCheatsheetDialog extends StatelessWidget {
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
           child: const Text('닫기'),
+        ),
+      ],
+    );
+  }
+}
+
+class _VersionFooter extends StatelessWidget {
+  const _VersionFooter({required this.versionAsync});
+
+  final AsyncValue<String> versionAsync;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = Theme.of(context).textTheme.bodySmall?.color;
+    final label = versionAsync.when(
+      data: (v) => 'Cutmaster v$v',
+      loading: () => 'Cutmaster',
+      error: (_, _) => 'Cutmaster',
+    );
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.end,
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 11,
+            color: color?.withValues(alpha: 0.6),
+          ),
         ),
       ],
     );

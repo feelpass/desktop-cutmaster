@@ -21,6 +21,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      actions: write
 
     steps:
       - name: Checkout
@@ -94,6 +95,19 @@ jobs:
           git tag "${{ steps.ver.outputs.new_tag }}"
           git push origin "${{ steps.ver.outputs.new_tag }}"
 
+      # GITHUB_TOKEN으로 push한 이벤트는 다른 워크플로우를 트리거하지 않으므로
+      # build-windows.yml을 명시적으로 workflow_dispatch한다 (예외 허용 이벤트).
+      # --ref에 새 태그를 넘기면 build-windows.yml에서 github.ref가
+      # refs/tags/vX.Y.Z로 잡혀 Release 생성 조건도 그대로 만족.
+      - name: Trigger Windows build
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          gh workflow run build-windows.yml \
+            --ref "${{ steps.ver.outputs.new_tag }}"
+          echo "::notice::build-windows.yml 트리거됨 (ref: ${{ steps.ver.outputs.new_tag }})"
+
       - name: Summary
         run: |
           {
@@ -103,6 +117,6 @@ jobs:
             echo "- 새 버전: \`${{ steps.ver.outputs.new_version }}\`"
             echo "- 태그: \`${{ steps.ver.outputs.new_tag }}\`"
             echo ""
-            echo "태그 push로 [Build Windows](../../actions/workflows/build-windows.yml) 워크플로우가 자동 트리거됩니다."
-            echo "완료 후 [Releases](../../releases/tag/${{ steps.ver.outputs.new_tag }})에서 zip을 받을 수 있습니다."
+            echo "[Build Windows](../../actions/workflows/build-windows.yml) 워크플로우를 새 태그(\`${{ steps.ver.outputs.new_tag }}\`)로 트리거했습니다."
+            echo "빌드 완료 후 [Releases](../../releases/tag/${{ steps.ver.outputs.new_tag }})에서 zip을 받을 수 있습니다."
           } >> "$GITHUB_STEP_SUMMARY"
