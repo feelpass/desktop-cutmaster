@@ -276,7 +276,7 @@ class _PresetManagementDialogState
                   Expanded(
                     child: Container(
                       decoration: BoxDecoration(
-                        border: Border.all(color: AppColors.border),
+                        border: Border.all(color: context.colors.border),
                         borderRadius: BorderRadius.circular(4),
                       ),
                       child: SingleChildScrollView(
@@ -314,10 +314,11 @@ class _PresetManagementDialogState
             // === 우측: 폼 ===
             Expanded(
               child: selected == null
-                  ? const Center(
+                  ? Center(
                       child: Text(
                         '왼쪽에서 프리셋을 선택하세요',
-                        style: TextStyle(color: AppColors.textSecondary),
+                        style:
+                            TextStyle(color: context.colors.textSecondary),
                       ),
                     )
                   : _PresetForm(
@@ -413,7 +414,7 @@ class _Swatch extends StatelessWidget {
             colors: [Color(0xFFEF4444), Color(0xFF8B5CF6)],
           ),
           borderRadius: BorderRadius.circular(2),
-          border: Border.all(color: AppColors.border),
+          border: Border.all(color: context.colors.border),
         ),
       );
     }
@@ -423,7 +424,7 @@ class _Swatch extends StatelessWidget {
       decoration: BoxDecoration(
         color: Color(colorPreset!.argb),
         borderRadius: BorderRadius.circular(2),
-        border: Border.all(color: AppColors.border),
+        border: Border.all(color: context.colors.border),
       ),
     );
   }
@@ -580,9 +581,9 @@ class _FieldLabel extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Text(
         text,
-        style: const TextStyle(
+        style: TextStyle(
           fontSize: 12,
-          color: AppColors.textSecondary,
+          color: context.colors.textSecondary,
         ),
       );
 }

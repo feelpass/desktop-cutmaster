@@ -24,6 +24,8 @@ void main() {
     expect(find.text('⌘N'), findsOneWidget);
     expect(find.text('저장'), findsOneWidget);
     expect(find.text('⌘S'), findsOneWidget);
+    expect(find.text('다른 이름으로 저장'), findsOneWidget);
+    expect(find.text('⌘⇧S'), findsOneWidget);
   });
 
   testWidgets('close button dismisses the dialog', (tester) async {

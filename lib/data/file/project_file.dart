@@ -131,10 +131,24 @@ class ProjectFileService {
   }
 
   /// single-writer assumption.
+  ///
+  /// 기본 동작: `$path.tmp`에 먼저 쓰고 `path`로 rename하는 atomic 패턴.
+  /// 프로세스가 mid-write로 죽어도 기존 `path` 파일이 손상되지 않게 보호.
+  ///
+  /// macOS app sandbox 예외: `files.user-selected.read-write` 엔타이틀먼트는
+  /// 사용자가 NSSavePanel에서 명시적으로 고른 *정확한* 경로에만 쓰기를 허가하므로
+  /// sibling `.tmp` 파일을 만들 수 없다. 이때는 `path`에 직접 쓰는 fallback —
+  /// atomic 보장은 잃지만 그렇지 않으면 저장 자체가 실패한다.
   Future<void> _atomicWrite(String path, Project project) async {
-    final tmp = '$path.tmp';
     final raw = const JsonEncoder.withIndent('  ').convert(project.toJson());
-    await File(tmp).writeAsString(raw, flush: true);
-    await File(tmp).rename(path);
+    final tmp = '$path.tmp';
+    try {
+      await File(tmp).writeAsString(raw, flush: true);
+      await File(tmp).rename(path);
+    } on FileSystemException {
+      // .tmp 쓰기 또는 rename이 sandbox로 막힌 경우 직접 쓰기.
+      // 부분 실패 시 `path`만 남으므로 호출자가 throw로 인식.
+      await File(path).writeAsString(raw, flush: true);
+    }
   }
 }

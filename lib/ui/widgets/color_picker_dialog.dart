@@ -29,6 +29,7 @@ class _ColorPickerDialog extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final presets = ref.watch(presetsProvider);
     final colors = presets.state.colors;
+    final pal = context.colors;
     return AlertDialog(
       title: const Text('색상 선택'),
       contentPadding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
@@ -58,7 +59,7 @@ class _ColorPickerDialog extends ConsumerWidget {
                           border: Border.all(
                             color: currentPresetId == null
                                 ? AppColors.primary
-                                : AppColors.border,
+                                : pal.border,
                             width: currentPresetId == null ? 2 : 1,
                           ),
                         ),
@@ -71,11 +72,11 @@ class _ColorPickerDialog extends ConsumerWidget {
               ),
               const Divider(),
               const SizedBox(height: 8),
-              const Text(
+              Text(
                 '색상 프리셋',
                 style: TextStyle(
                   fontSize: 11,
-                  color: AppColors.textSecondary,
+                  color: pal.textSecondary,
                 ),
               ),
               const SizedBox(height: 6),
@@ -107,10 +108,10 @@ class _ColorPickerDialog extends ConsumerWidget {
                               borderRadius: BorderRadius.circular(4),
                               border: Border.all(
                                 color: isSelected
-                                    ? AppColors.textPrimary
+                                    ? pal.textPrimary
                                     : (isVeryLight
-                                        ? AppColors.tableHeaderText
-                                        : AppColors.border),
+                                        ? pal.tableHeaderText
+                                        : pal.border),
                                 width: isSelected ? 2 : 1,
                               ),
                             ),

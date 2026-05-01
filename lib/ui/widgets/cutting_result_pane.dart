@@ -4,16 +4,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../domain/models/cutting_plan.dart';
 import '../../domain/models/project.dart';
 import '../../domain/models/solver_mode.dart';
-import '../../l10n/app_localizations.dart';
-import '../providers/preset_provider.dart';
 import '../providers/solver_provider.dart';
 import '../providers/tabs_provider.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_text_styles.dart';
-import '../utils/pdf_export.dart';
-import '../utils/png_export.dart';
 import 'cutting_canvas.dart';
 
+/// 결과 다이얼로그 우측 — 시트별 도면 리스트.
+/// 효율·시트수·부품수·자재 통계는 좌측 ResultSummaryPanel이 담당.
 class CuttingResultPane extends ConsumerWidget {
   const CuttingResultPane({super.key, required this.plan});
 
@@ -21,7 +19,7 @@ class CuttingResultPane extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final t = AppLocalizations.of(context);
+    final c = context.colors;
     final project = ref.watch(activeProjectProvider);
     if (project == null) return const SizedBox.shrink();
     final showLabels = project.showPartLabels;
@@ -43,84 +41,17 @@ class CuttingResultPane extends ConsumerWidget {
               runnerUp: basePlan.runnerUp!,
               runnerUpDirection: basePlan.runnerUpDirection!,
               showRunner: showRunner,
-              onSelectWinner: () => ref
-                  .read(showRunnerUpProvider.notifier)
-                  .state = false,
-              onSelectRunnerUp: () => ref
-                  .read(showRunnerUpProvider.notifier)
-                  .state = true,
+              onSelectWinner: () =>
+                  ref.read(showRunnerUpProvider.notifier).state = false,
+              onSelectRunnerUp: () =>
+                  ref.read(showRunnerUpProvider.notifier).state = true,
             ),
             const SizedBox(height: 12),
           ],
           _buildWarnings(project, plan),
-          // 헤더: 효율 + 요약 + export
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Text(
-                '${plan.efficiencyPercent.toStringAsFixed(1)}%',
-                style: AppTextStyles.efficiencyNumber,
-              ),
-              const SizedBox(width: 8),
-              Text(t.efficiency, style: AppTextStyles.body),
-              const SizedBox(width: 24),
-              Text(t.sheetUsed(plan.sheets.length),
-                  style: AppTextStyles.body),
-              const SizedBox(width: 12),
-              Text(t.partsCount(_totalPlaced(plan)),
-                  style: AppTextStyles.body),
-              if (plan.unplaced.isNotEmpty) ...[
-                const SizedBox(width: 12),
-                Text(
-                  t.unplacedCount(plan.unplaced.length),
-                  style: AppTextStyles.body
-                      .copyWith(color: Colors.orange.shade800),
-                ),
-              ],
-              const Spacer(),
-              OutlinedButton.icon(
-                onPressed: plan.sheets.isEmpty
-                    ? null
-                    : () {
-                        final presets = ref.read(presetsProvider);
-                        exportSheetsToPng(
-                          context,
-                          plan,
-                          ref.read(tabsProvider).active!.project.stocks,
-                          showLabels,
-                          colorLookup: (id) =>
-                              id == null ? null : presets.colorById(id)?.argb,
-                        );
-                      },
-                icon: const Icon(Icons.image_outlined, size: 16),
-                label: Text(t.exportPng),
-              ),
-              const SizedBox(width: 8),
-              OutlinedButton.icon(
-                onPressed: plan.sheets.isEmpty
-                    ? null
-                    : () {
-                        final presets = ref.read(presetsProvider);
-                        exportSheetsToPdf(
-                          context,
-                          plan,
-                          ref.read(tabsProvider).active!.project.stocks,
-                          showLabels,
-                          colorLookup: (id) =>
-                              id == null ? null : presets.colorById(id)?.argb,
-                        );
-                      },
-                icon: const Icon(Icons.picture_as_pdf, size: 16),
-                label: Text(t.exportPdf),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          const Divider(height: 1, color: AppColors.border),
-          const SizedBox(height: 12),
-          // 시트별 도면 stack — 가장 긴 시트 기준으로 상대 비율 유지
           Expanded(
             child: Builder(builder: (_) {
+              final stocks = project.derivedStocks();
               final maxLen = plan.sheets.fold<double>(
                 0,
                 (acc, s) => s.sheetLength > acc ? s.sheetLength : acc,
@@ -130,21 +61,21 @@ class CuttingResultPane extends ConsumerWidget {
                 separatorBuilder: (_, _) => const SizedBox(height: 24),
                 itemBuilder: (_, i) {
                   final s = plan.sheets[i];
-                  final stock = ref
-                      .read(tabsProvider)
-                      .active!
-                      .project
-                      .stocks
+                  final stock = stocks
                       .where((st) => st.id == s.stockSheetId)
                       .toList();
+                  final leftover = s.largestLeftover;
+                  final leftoverText = leftover == null || leftover.area < 1000
+                      ? null
+                      : '큰 자투리 ${leftover.width.toStringAsFixed(0)}×${leftover.height.toStringAsFixed(0)}';
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        '시트 ${i + 1}  •  ${s.sheetLength.toStringAsFixed(0)} × ${s.sheetWidth.toStringAsFixed(0)} mm  •  ${s.usedPercent.toStringAsFixed(1)}%${stock.isNotEmpty && stock.first.label.isNotEmpty ? "  •  ${stock.first.label}" : ""}',
+                        '시트 ${i + 1}  •  ${s.sheetLength.toStringAsFixed(0)} × ${s.sheetWidth.toStringAsFixed(0)} mm  •  ${s.usedPercent.toStringAsFixed(1)}%${stock.isNotEmpty && stock.first.label.isNotEmpty ? "  •  ${stock.first.label}" : ""}${leftoverText != null ? "  •  $leftoverText" : ""}',
                         style: AppTextStyles.body.copyWith(
                           fontWeight: FontWeight.w600,
-                          color: AppColors.textSecondary,
+                          color: c.textSecondary,
                         ),
                       ),
                       const SizedBox(height: 8),
@@ -153,6 +84,10 @@ class CuttingResultPane extends ConsumerWidget {
                         stock: stock.isNotEmpty ? stock.first : null,
                         showLabels: showLabels,
                         maxSheetLength: maxLen,
+                        headcutTop: project.headcutTop,
+                        headcutBottom: project.headcutBottom,
+                        headcutLeft: project.headcutLeft,
+                        headcutRight: project.headcutRight,
                       ),
                     ],
                   );
@@ -164,9 +99,6 @@ class CuttingResultPane extends ConsumerWidget {
       ),
     );
   }
-
-  int _totalPlaced(CuttingPlan plan) =>
-      plan.sheets.fold<int>(0, (acc, s) => acc + s.placed.length);
 
   /// strip-cut 모드 전용 edge case 경고 배너.
   /// (1) 우선순위 토글 3개 모두 OFF — solver가 비결정적이 되므로 사용자가
@@ -295,17 +227,13 @@ class _AutoRecommendChips extends StatelessWidget {
     }
   }
 
-  /// strip 수 + segment 수 합. auto_recommend의 _countCuts와 동일한 정의.
+  /// strip-cut/FFD 공통: 시트마다 estimateGuillotineCuts를 호출해 합산.
+  /// strip-cut에는 정확값, FFD에는 부품 경계 추정값.
   static int _countCuts(CuttingPlan p) {
-    int cuts = 0;
+    var n = 0;
     for (final s in p.sheets) {
-      final seq = s.cutSequence;
-      if (seq == null) continue;
-      cuts += seq.strips.length;
-      for (final strip in seq.strips) {
-        cuts += strip.segments.length;
-      }
+      n += estimateGuillotineCuts(s);
     }
-    return cuts;
+    return n;
   }
 }

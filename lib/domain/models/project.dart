@@ -3,7 +3,6 @@ import 'solver_mode.dart';
 import 'stock_sheet.dart';
 
 /// 한 번의 재단 작업 단위. 자재+부품+옵션+메타데이터 묶음.
-/// 자재 라이브러리에서 가져온 자재의 스냅샷을 보유 (라이브러리 수정이 기존 프로젝트에 영향 안 줌).
 class Project {
   final String id;
   final String name;
@@ -22,6 +21,21 @@ class Project {
   final DateTime createdAt;
   final DateTime updatedAt;
 
+  // 주문 정보
+  final String orderNumber;
+  final DateTime? dueDate;
+  final String memo;
+
+  // 헤드컷 (자재 가장자리에서 잘라낼 mm)
+  final double headcutTop;
+  final double headcutBottom;
+  final double headcutLeft;
+  final double headcutRight;
+
+  /// 자동 자재 도출 시 사용되는 표준 자재 크기.
+  static const double standardStockLength = 2440;
+  static const double standardStockWidth = 1220;
+
   const Project({
     required this.id,
     required this.name,
@@ -39,6 +53,13 @@ class Project {
     this.minimizeWaste = true,
     required this.createdAt,
     required this.updatedAt,
+    this.orderNumber = '',
+    this.dueDate,
+    this.memo = '',
+    this.headcutTop = 0,
+    this.headcutBottom = 0,
+    this.headcutLeft = 0,
+    this.headcutRight = 0,
   });
 
   factory Project.create({required String id, required String name}) {
@@ -60,6 +81,14 @@ class Project {
     bool? preferSameWidth,
     bool? minimizeCuts,
     bool? minimizeWaste,
+    String? orderNumber,
+    DateTime? dueDate,
+    bool clearDueDate = false,
+    String? memo,
+    double? headcutTop,
+    double? headcutBottom,
+    double? headcutLeft,
+    double? headcutRight,
   }) =>
       Project(
         id: id,
@@ -78,16 +107,46 @@ class Project {
         minimizeWaste: minimizeWaste ?? this.minimizeWaste,
         createdAt: createdAt,
         updatedAt: DateTime.now(),
+        orderNumber: orderNumber ?? this.orderNumber,
+        dueDate: clearDueDate ? null : (dueDate ?? this.dueDate),
+        memo: memo ?? this.memo,
+        headcutTop: headcutTop ?? this.headcutTop,
+        headcutBottom: headcutBottom ?? this.headcutBottom,
+        headcutLeft: headcutLeft ?? this.headcutLeft,
+        headcutRight: headcutRight ?? this.headcutRight,
       );
 
+  /// 부품의 (colorPresetId, thickness) 고유 조합으로 자재 시트 자동 도출.
+  /// 모두 표준 크기(2440×1220) 무제한 수량(qty=999)으로 생성된다.
+  /// [stocks] 필드에 사용자가 직접 입력한 시트가 있어도 무시하고 부품에서만 도출.
+  List<StockSheet> derivedStocks() {
+    final seen = <String, StockSheet>{};
+    for (final p in parts) {
+      final key = '${p.colorPresetId ?? ''}|${p.thickness}';
+      if (seen.containsKey(key)) continue;
+      seen[key] = StockSheet(
+        id: 'auto_$key',
+        length: standardStockLength,
+        width: standardStockWidth,
+        qty: 999,
+        label: _materialLabel(p),
+        grainDirection: GrainDirection.none,
+        colorPresetId: p.colorPresetId,
+      );
+    }
+    return seen.values.toList();
+  }
+
+  static String _materialLabel(CutPart p) {
+    final t = p.thickness == p.thickness.toInt()
+        ? p.thickness.toInt().toString()
+        : p.thickness.toString();
+    return '${t}T';
+  }
+
   /// On-disk JSON 스키마 버전.
-  /// v1: `CutPart`/`StockSheet`이 `color: int` (ARGB) 필드를 가졌음.
-  /// v2: 색상이 글로벌 `ColorPreset` 라이브러리로 이동 — `colorPresetId: String?`로 참조.
-  /// v3: strip-cut 솔버 옵션 추가 — `solverMode`, `stripDirection`, `maxStages`,
-  ///     `preferSameWidth`, `minimizeCuts`, `minimizeWaste`. v2 파일은 새 필드를
-  ///     default로 받아 그대로 로드된다 (forward-compat).
-  /// v1 파일은 `colorMatcher`를 통해 ARGB → preset id 마이그레이션을 거쳐 로드된다.
-  static const int schemaVersion = 3;
+  /// v4: 주문 정보(orderNumber/dueDate/memo) + 헤드컷 4면 + 부품 thickness/priority 필드 추가.
+  static const int schemaVersion = 4;
 
   Map<String, dynamic> toJson() => {
         'schemaVersion': schemaVersion,
@@ -107,14 +166,15 @@ class Project {
         'minimizeWaste': minimizeWaste,
         'createdAt': createdAt.toIso8601String(),
         'updatedAt': updatedAt.toIso8601String(),
+        'orderNumber': orderNumber,
+        if (dueDate != null) 'dueDate': dueDate!.toIso8601String(),
+        'memo': memo,
+        'headcutTop': headcutTop,
+        'headcutBottom': headcutBottom,
+        'headcutLeft': headcutLeft,
+        'headcutRight': headcutRight,
       };
 
-  /// JSON에서 Project 복원.
-  ///
-  /// [colorMatcher]는 v1 → v2 마이그레이션용. v1 파일에는 `CutPart`/`StockSheet`에
-  /// `color: int` (ARGB)가 있었고, v2에서는 `colorPresetId: String?`만 가진다.
-  /// 호출자가 ColorPreset 라이브러리를 들여다보며 ARGB → preset id 매칭을
-  /// 책임진다 — 매칭 안 되면 `null`을 돌려주면 색상이 사라진 채로 로드된다.
   factory Project.fromJson(
     Map<String, dynamic> j, {
     String? Function(int argb)? colorMatcher,
@@ -149,6 +209,15 @@ class Project {
           DateTime.now().toIso8601String()),
       updatedAt: DateTime.parse(j['updatedAt'] as String? ??
           DateTime.now().toIso8601String()),
+      orderNumber: (j['orderNumber'] as String?) ?? '',
+      dueDate: j['dueDate'] is String
+          ? DateTime.tryParse(j['dueDate'] as String)
+          : null,
+      memo: (j['memo'] as String?) ?? '',
+      headcutTop: ((j['headcutTop'] as num?) ?? 0).toDouble(),
+      headcutBottom: ((j['headcutBottom'] as num?) ?? 0).toDouble(),
+      headcutLeft: ((j['headcutLeft'] as num?) ?? 0).toDouble(),
+      headcutRight: ((j['headcutRight'] as num?) ?? 0).toDouble(),
     );
   }
 }

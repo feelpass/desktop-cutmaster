@@ -216,6 +216,15 @@ Win32Window::MessageHandler(HWND hwnd,
     case WM_DWMCOLORIZATIONCOLORCHANGED:
       UpdateTheme(hwnd);
       return 0;
+
+    case WM_GETMINMAXINFO: {
+      // 가로는 1400 고정 (min == max), 세로는 720 이상 자유.
+      auto* info = reinterpret_cast<MINMAXINFO*>(lparam);
+      info->ptMinTrackSize.x = 1400;
+      info->ptMaxTrackSize.x = 1400;
+      info->ptMinTrackSize.y = 880;
+      return 0;
+    }
   }
 
   return DefWindowProc(window_handle_, message, wparam, lparam);

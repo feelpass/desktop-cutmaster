@@ -11,20 +11,22 @@ class EmptyResult extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = AppLocalizations.of(context);
+    final c = context.colors;
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(Icons.crop_square_outlined,
-              size: 80, color: AppColors.textSecondary.withValues(alpha: 0.4)),
+              size: 80, color: c.textSecondary.withValues(alpha: 0.4)),
           const SizedBox(height: 16),
-          Text(t.emptyResultTitle, style: AppTextStyles.emptyHint),
+          Text(t.emptyResultTitle,
+              style: AppTextStyles.emptyHint.copyWith(color: c.textMuted)),
           const SizedBox(height: 4),
           Text(
             t.emptyResultAction,
             style: AppTextStyles.emptyHint.copyWith(
               fontWeight: FontWeight.w500,
-              color: AppColors.textPrimary,
+              color: c.textPrimary,
             ),
           ),
         ],

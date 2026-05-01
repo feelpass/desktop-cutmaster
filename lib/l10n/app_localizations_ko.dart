@@ -90,6 +90,47 @@ class AppLocalizationsKo extends AppLocalizations {
   String get exportPdf => 'PDF 내보내기';
 
   @override
+  String get summaryEfficiency => '효율';
+
+  @override
+  String get summarySheetsLabel => '시트';
+
+  @override
+  String get summaryPartsLabel => '부품';
+
+  @override
+  String get summaryCutsLabel => '절단';
+
+  @override
+  String get summaryAreaLabel => '사용 면적';
+
+  @override
+  String get summaryUnplacedLabel => '미배치';
+
+  @override
+  String summaryMaterials(int n) {
+    return '재료 ($n)';
+  }
+
+  @override
+  String summaryPartGroups(int n) {
+    return '부품 ($n)';
+  }
+
+  @override
+  String summarySheetUnit(int n) {
+    return '$n매';
+  }
+
+  @override
+  String summaryAreaM2(String v) {
+    return '$v m²';
+  }
+
+  @override
+  String get summaryCutsEstimatedTooltip => 'FFD 모드에서는 부품 경계에서 추정한 값';
+
+  @override
   String get materialUpdatedTitle => '자재가 변경되었습니다';
 
   @override

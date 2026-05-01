@@ -56,3 +56,7 @@ app.*.map.json
 # Build artifacts
 *.dmg
 *.msi
+
+# Local tooling
+.claude/
+.playwright-mcp/

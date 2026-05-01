@@ -168,7 +168,7 @@ class _ColorPresetManagementDialogState
                   Expanded(
                     child: Container(
                       decoration: BoxDecoration(
-                        border: Border.all(color: AppColors.border),
+                        border: Border.all(color: context.colors.border),
                         borderRadius: BorderRadius.circular(4),
                       ),
                       child: SingleChildScrollView(
@@ -197,7 +197,7 @@ class _ColorPresetManagementDialogState
                                           borderRadius:
                                               BorderRadius.circular(2),
                                           border: Border.all(
-                                              color: AppColors.border),
+                                              color: context.colors.border),
                                         ),
                                       ),
                                       const SizedBox(width: 8),
@@ -242,20 +242,21 @@ class _ColorPresetManagementDialogState
             SizedBox(
               width: 280,
               child: selected == null
-                  ? const Center(
+                  ? Center(
                       child: Text(
                         '왼쪽에서 색상을 선택하세요',
-                        style: TextStyle(color: AppColors.textSecondary),
+                        style:
+                            TextStyle(color: context.colors.textSecondary),
                       ),
                     )
                   : Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
+                        Text(
                           '이름',
                           style: TextStyle(
                             fontSize: 12,
-                            color: AppColors.textSecondary,
+                            color: context.colors.textSecondary,
                           ),
                         ),
                         const SizedBox(height: 4),
@@ -268,11 +269,11 @@ class _ColorPresetManagementDialogState
                           onChanged: (v) => _onNameChanged(v, selected),
                         ),
                         const SizedBox(height: 16),
-                        const Text(
+                        Text(
                           '색상',
                           style: TextStyle(
                             fontSize: 12,
-                            color: AppColors.textSecondary,
+                            color: context.colors.textSecondary,
                           ),
                         ),
                         const SizedBox(height: 4),
@@ -284,7 +285,7 @@ class _ColorPresetManagementDialogState
                             decoration: BoxDecoration(
                               color: Color(selected.argb),
                               borderRadius: BorderRadius.circular(4),
-                              border: Border.all(color: AppColors.border),
+                              border: Border.all(color: context.colors.border),
                             ),
                           ),
                         ),
