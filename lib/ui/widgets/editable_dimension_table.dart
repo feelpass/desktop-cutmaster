@@ -47,6 +47,7 @@ class EditableDimensionTable extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = AppLocalizations.of(context);
+    final pal = context.colors;
     final hasLeading = leadingBuilder != null;
     final hasReorder = _reorderEnabled;
 
@@ -56,6 +57,7 @@ class EditableDimensionTable extends StatelessWidget {
         key: ValueKey(r.id),
         row: r,
         rowNumber: i + 1,
+        isLast: i == rows.length - 1,
         onChanged: (updated) {
           final next = [...rows];
           next[i] = updated;
@@ -71,81 +73,108 @@ class EditableDimensionTable extends StatelessWidget {
       );
     }
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        // header — 넘버 / 부품명 / 가로(mm) / 세로(mm) / 두께(mm) / 자재 / 수량 / 메모
-        // SpaceBetween: 부모 폭이 합계보다 클 때 칼럼 사이 간격이 균등하게 분배.
-        Padding(
-          padding: const EdgeInsets.only(bottom: 4),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    // 표 외곽 — 라이트 모드 white card 위에 1px 보더 + 8px radius (DESIGN.md §5).
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(8),
+        child: Container(
+          decoration: BoxDecoration(
+            color: pal.background,
+            border: Border.all(color: pal.border),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              if (hasReorder) const SizedBox(width: 24),
-              const SizedBox(
-                width: 28,
-                child: Text('#',
-                    textAlign: TextAlign.center,
-                    style: AppTextStyles.tableHeader),
+              // 헤더 행 — section header bg + 하단 보더로 데이터 영역과 분리.
+              // SpaceBetween: 부모 폭이 합계보다 클 때 칼럼 사이 간격이 균등하게 분배.
+              Container(
+                padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+                decoration: BoxDecoration(
+                  color: pal.sectionHeaderBg,
+                  border: Border(bottom: BorderSide(color: pal.border)),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    if (hasReorder) const SizedBox(width: 24),
+                    const SizedBox(
+                      width: 28,
+                      child: Text('#',
+                          textAlign: TextAlign.center,
+                          style: AppTextStyles.tableHeader),
+                    ),
+                    if (hasLeading) const SizedBox(width: 30),
+                    const SizedBox(
+                      width: 220,
+                      child: Text('부품명', style: AppTextStyles.tableHeader),
+                    ),
+                    SizedBox(
+                        width: 60,
+                        child: Text('가로(mm)',
+                            textAlign: TextAlign.center,
+                            style: AppTextStyles.tableHeader)),
+                    SizedBox(
+                        width: 60,
+                        child: Text('세로(mm)',
+                            textAlign: TextAlign.center,
+                            style: AppTextStyles.tableHeader)),
+                    SizedBox(
+                        width: 60,
+                        child: Text('두께(mm)',
+                            textAlign: TextAlign.center,
+                            style: AppTextStyles.tableHeader)),
+                    SizedBox(
+                        width: 64,
+                        child: Tooltip(
+                          message: '결방향 — 클릭으로 토글\n'
+                              '결없음(자유 회전) ↔ 가로결(회전 잠금)',
+                          child: Text('결',
+                              textAlign: TextAlign.center,
+                              style: AppTextStyles.tableHeader),
+                        )),
+                    SizedBox(
+                        width: 96,
+                        child: Text('자재',
+                            textAlign: TextAlign.left,
+                            style: AppTextStyles.tableHeader)),
+                    SizedBox(
+                        width: 80,
+                        child: Text(t.qty,
+                            textAlign: TextAlign.center,
+                            style: AppTextStyles.tableHeader)),
+                    const SizedBox(
+                      width: 260,
+                      child: Text('메모', style: AppTextStyles.tableHeader),
+                    ),
+                    const SizedBox(width: 28), // 삭제 버튼 자리
+                  ],
+                ),
               ),
-              if (hasLeading) const SizedBox(width: 30),
-              const SizedBox(
-                width: 220,
-                child: Text('부품명', style: AppTextStyles.tableHeader),
-              ),
-              SizedBox(
-                  width: 60,
-                  child: Text('가로(mm)',
-                      textAlign: TextAlign.center,
-                      style: AppTextStyles.tableHeader)),
-              SizedBox(
-                  width: 60,
-                  child: Text('세로(mm)',
-                      textAlign: TextAlign.center,
-                      style: AppTextStyles.tableHeader)),
-              SizedBox(
-                  width: 60,
-                  child: Text('두께(mm)',
-                      textAlign: TextAlign.center,
-                      style: AppTextStyles.tableHeader)),
-              SizedBox(
-                  width: 96,
-                  child: Text('자재',
-                      textAlign: TextAlign.left,
-                      style: AppTextStyles.tableHeader)),
-              SizedBox(
-                  width: 80,
-                  child: Text(t.qty,
-                      textAlign: TextAlign.center,
-                      style: AppTextStyles.tableHeader)),
-              const SizedBox(
-                width: 260,
-                child: Text('메모', style: AppTextStyles.tableHeader),
-              ),
-              const SizedBox(width: 28), // 삭제 버튼 자리
+              // rows
+              if (hasReorder)
+                ReorderableListView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  buildDefaultDragHandles: false,
+                  itemCount: rows.length,
+                  itemBuilder: (ctx, i) => buildRow(i),
+                  onReorder: (oldIndex, newIndex) {
+                    var newIdx = newIndex;
+                    if (newIdx > oldIndex) newIdx--;
+                    final next = [...rows];
+                    final item = next.removeAt(oldIndex);
+                    next.insert(newIdx, item);
+                    onReorder!(next);
+                  },
+                )
+              else
+                ...List.generate(rows.length, buildRow),
             ],
           ),
         ),
-        // rows
-        if (hasReorder)
-          ReorderableListView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            buildDefaultDragHandles: false,
-            itemCount: rows.length,
-            itemBuilder: (ctx, i) => buildRow(i),
-            onReorder: (oldIndex, newIndex) {
-              var newIdx = newIndex;
-              if (newIdx > oldIndex) newIdx--;
-              final next = [...rows];
-              final item = next.removeAt(oldIndex);
-              next.insert(newIdx, item);
-              onReorder!(next);
-            },
-          )
-        else
-          ...List.generate(rows.length, buildRow),
-      ],
+      ),
     );
   }
 }
@@ -219,6 +248,7 @@ class _RowField extends StatefulWidget {
     required this.onChanged,
     required this.onDelete,
     required this.deleteTooltip,
+    this.isLast = false,
     this.leading,
     this.reorderIndex,
   });
@@ -228,6 +258,9 @@ class _RowField extends StatefulWidget {
   final ValueChanged<EditableRow> onChanged;
   final VoidCallback onDelete;
   final String deleteTooltip;
+
+  /// 마지막 행이면 bottom border를 생략 — 외곽 컨테이너 보더와 중복되지 않게.
+  final bool isLast;
   final Widget? leading;
 
   /// `ReorderableListView` 안에서 이 행의 인덱스. null 이면 drag handle 미노출.
@@ -285,14 +318,18 @@ class _RowFieldState extends State<_RowField> {
   Widget build(BuildContext context) {
     final tooltipMsg = _buildTooltipMessage();
     final pal = context.colors;
-    final mainRow = SizedBox(
+    final mainRow = Container(
       height: 36,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 2),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
+      decoration: BoxDecoration(
+        border: widget.isLast
+            ? null
+            : Border(bottom: BorderSide(color: pal.border)),
+      ),
+      padding: const EdgeInsets.symmetric(vertical: 2, horizontal: 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
             if (widget.reorderIndex != null)
               SizedBox(
                 width: 24,
@@ -342,6 +379,14 @@ class _RowFieldState extends State<_RowField> {
             SizedBox(width: 60, child: _cell(_widCtrl, true)),
             SizedBox(width: 60, child: _cell(_thickCtrl, true)),
             SizedBox(
+              width: 64,
+              child: GrainToggle(
+                value: widget.row.grainDirection,
+                onChanged: (next) =>
+                    widget.onChanged(widget.row.copyWith(grainDirection: next)),
+              ),
+            ),
+            SizedBox(
               width: 96,
               child: _MaterialBadge(
                 colorPresetId: widget.row.colorPresetId,
@@ -367,7 +412,6 @@ class _RowFieldState extends State<_RowField> {
             ),
           ],
         ),
-      ),
     );
 
     return tooltipMsg == null
@@ -470,6 +514,70 @@ class _MaterialBadge extends ConsumerWidget {
       maxLines: 1,
       overflow: TextOverflow.ellipsis,
       style: style,
+    );
+  }
+}
+
+/// 결방향 토글 — 클릭으로 none ↔ lengthwise.
+/// 기존 데이터로 들어온 widthwise는 유지하되, 토글하면 lengthwise로 정규화.
+/// CSV/Excel GRAIN 컬럼 매핑: 0=none(자유 회전), 1=lengthwise(회전 잠금).
+///
+/// 시각: 가로결은 강조 색 + 결 모양 아이콘(가로 줄 패턴) + '가로결' 라벨.
+/// 결없음은 옅은 회색 + dash 아이콘 + '결없음' 라벨.
+class GrainToggle extends StatelessWidget {
+  const GrainToggle({super.key, required this.value, required this.onChanged});
+
+  final GrainDirection value;
+  final ValueChanged<GrainDirection> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final pal = context.colors;
+    final locked = value != GrainDirection.none;
+    final tooltip = locked ? '가로결 (회전 잠금)' : '결없음 (자유 회전)';
+    final accent = AppColors.accent;
+    final fg = locked ? accent : pal.textSecondary;
+    final bg = locked ? accent.withAlpha(0x1A) : Colors.transparent;
+    final borderColor = locked ? accent.withAlpha(0x66) : pal.textSecondary.withAlpha(0x33);
+
+    return Tooltip(
+      message: tooltip,
+      child: InkWell(
+        onTap: () => onChanged(
+          locked ? GrainDirection.none : GrainDirection.lengthwise,
+        ),
+        borderRadius: BorderRadius.circular(4),
+        child: Container(
+          height: 22,
+          margin: const EdgeInsets.symmetric(horizontal: 2, vertical: 3),
+          padding: const EdgeInsets.symmetric(horizontal: 6),
+          decoration: BoxDecoration(
+            color: bg,
+            border: Border.all(color: borderColor, width: 1),
+            borderRadius: BorderRadius.circular(4),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                locked ? Icons.density_medium : Icons.horizontal_rule,
+                size: 11,
+                color: fg,
+              ),
+              const SizedBox(width: 3),
+              Text(
+                locked ? '가로결' : '결없음',
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: locked ? FontWeight.w600 : FontWeight.w500,
+                  color: fg,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

@@ -16,7 +16,7 @@ import 'part_color.dart';
 /// 자재/부품 시각 구분 강화 포인트:
 /// - 자재 배경 lerp 0.20 (옅은 tint — 부품 색이 묻히지 않게)
 /// - 자재 외곽 2중선: stock 색 2.5px 바깥 + 흰색 1px 안쪽 halo (시트 경계 선명)
-/// - 부품 fill alpha 0.60, stroke 1.8px (더 진하게)
+/// - 부품 fill alpha 0.60, stroke 1.8px 검정 (부품 사이 경계 선명)
 /// - 라벨에 흰색 outline (가독성 — 반투명 fill 위에서 글자가 묻히지 않음)
 class SheetPainter {
   SheetPainter({
@@ -128,11 +128,11 @@ class SheetPainter {
       );
       // fill: 0.60 alpha (이전 0.45보다 진함).
       canvas.drawRect(partRect, Paint()..color = color.withValues(alpha: 0.60));
-      // stroke: 1.8px (이전 1.2px보다 굵음).
+      // stroke: 검정 1.8px — 부품 색과 무관하게 경계가 또렷이 보이도록.
       canvas.drawRect(
         partRect,
         Paint()
-          ..color = color
+          ..color = AppColors.textPrimary
           ..style = PaintingStyle.stroke
           ..strokeWidth = 1.8,
       );

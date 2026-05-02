@@ -97,26 +97,18 @@ class _CuttingConditionsSectionState
         ),
         const SizedBox(height: 16),
 
-        // 헤드컷 (상/하/좌/우 십자 배치)
+        // 헤드컷 — 상/하/좌/우 4행 표 (외곽 보더 + 행 구분선).
         const Text('헤드컷 (상/하/좌/우)', style: AppTextStyles.body),
         const SizedBox(height: 6),
-        Center(
-          child: SizedBox(
-            width: 380,
-            height: 200,
-            child: _HeadcutCross(
-              top: _topCtrl,
-              bottom: _bottomCtrl,
-              left: _leftCtrl,
-              right: _rightCtrl,
-              onTop: (v) => notifier.updateHeadcut(activeId, top: v),
-              onBottom: (v) =>
-                  notifier.updateHeadcut(activeId, bottom: v),
-              onLeft: (v) => notifier.updateHeadcut(activeId, left: v),
-              onRight: (v) =>
-                  notifier.updateHeadcut(activeId, right: v),
-            ),
-          ),
+        _HeadcutTable(
+          top: _topCtrl,
+          bottom: _bottomCtrl,
+          left: _leftCtrl,
+          right: _rightCtrl,
+          onTop: (v) => notifier.updateHeadcut(activeId, top: v),
+          onBottom: (v) => notifier.updateHeadcut(activeId, bottom: v),
+          onLeft: (v) => notifier.updateHeadcut(activeId, left: v),
+          onRight: (v) => notifier.updateHeadcut(activeId, right: v),
         ),
 
         const SizedBox(height: 12),
@@ -126,10 +118,10 @@ class _CuttingConditionsSectionState
   }
 }
 
-/// 자재 사각형을 가운데 두고 사방에 입력칸을 배치 — 시각적으로 어느 변에
-/// 헤드컷이 적용되는지 즉시 인식 가능.
-class _HeadcutCross extends StatelessWidget {
-  const _HeadcutCross({
+/// 헤드컷 4행 표 — 행마다 [방향 라벨 | - 입력 + | mm].
+/// 외곽 1px 보더 + 8px radius, 행 사이 1px 보더 (DESIGN.md §5).
+class _HeadcutTable extends StatelessWidget {
+  const _HeadcutTable({
     required this.top,
     required this.bottom,
     required this.left,
@@ -151,116 +143,81 @@ class _HeadcutCross extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        // 상
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            _LabeledStepper(
-                label: '↑ 상', controller: top, onCommit: onTop),
-          ],
+    final pal = context.colors;
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        decoration: BoxDecoration(
+          color: pal.background,
+          border: Border.all(color: pal.border),
+          borderRadius: BorderRadius.circular(8),
         ),
-        const SizedBox(height: 6),
-        // 좌 + 사각형 + 우
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.center,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            _LabeledStepper(
-                label: '← 좌',
-                controller: left,
-                onCommit: onLeft,
-                rotated: true),
-            const SizedBox(width: 8),
-            Builder(builder: (context) {
-              final c = context.colors;
-              return Container(
-                width: 80,
-                height: 56,
-                decoration: BoxDecoration(
-                  color: c.surfaceAlt,
-                  border: Border.all(color: c.border, width: 2),
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                alignment: Alignment.center,
-                child: Text(
-                  '자재',
-                  style:
-                      TextStyle(fontSize: 11, color: c.textSecondary),
-                ),
-              );
-            }),
-            const SizedBox(width: 8),
-            _LabeledStepper(
-                label: '우 →',
+            _HeadcutRow(
+                label: '↑ 상', controller: top, onCommit: onTop),
+            _HeadcutRow(
+                label: '↓ 하', controller: bottom, onCommit: onBottom),
+            _HeadcutRow(
+                label: '← 좌', controller: left, onCommit: onLeft),
+            _HeadcutRow(
+                label: '→ 우',
                 controller: right,
                 onCommit: onRight,
-                rotated: true),
+                isLast: true),
           ],
         ),
-        const SizedBox(height: 6),
-        // 하
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            _LabeledStepper(
-                label: '↓ 하',
-                controller: bottom,
-                onCommit: onBottom),
-          ],
-        ),
-      ],
+      ),
     );
   }
 }
 
-/// 라벨 + - / 값 / + 형태의 컴팩트 스테퍼.
-/// [rotated]는 시각적 의미만 가짐 — 좌/우 측 cell이 stack 형태로 보이도록
-/// 라벨을 위쪽에 두는 layout flag.
-class _LabeledStepper extends StatelessWidget {
-  const _LabeledStepper({
+class _HeadcutRow extends StatelessWidget {
+  const _HeadcutRow({
     required this.label,
     required this.controller,
     required this.onCommit,
-    this.rotated = false,
+    this.isLast = false,
   });
 
   final String label;
   final TextEditingController controller;
   final ValueChanged<double> onCommit;
-  final bool rotated;
+  final bool isLast;
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Text(label,
-            style: TextStyle(
-                fontSize: 11, color: context.colors.textSecondary)),
-        const SizedBox(height: 2),
-        Row(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            _NumberStepper(
-              controller: controller,
-              width: 100,
-              step: 1,
-              min: 0,
-              max: 200,
-              onCommit: onCommit,
+    final pal = context.colors;
+    return Container(
+      decoration: BoxDecoration(
+        border: isLast ? null : Border(bottom: BorderSide(color: pal.border)),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 56,
+            child: Text(
+              label,
+              style: TextStyle(fontSize: 12, color: pal.textPrimary),
             ),
-            const SizedBox(width: 4),
-            Text(
-              'mm',
-              style: TextStyle(
-                  fontSize: 11, color: context.colors.textSecondary),
-            ),
-          ],
-        ),
-      ],
+          ),
+          _NumberStepper(
+            controller: controller,
+            width: 110,
+            step: 1,
+            min: 0,
+            max: 200,
+            onCommit: onCommit,
+          ),
+          const SizedBox(width: 6),
+          Text(
+            'mm',
+            style: TextStyle(fontSize: 12, color: pal.textSecondary),
+          ),
+        ],
+      ),
     );
   }
 }
