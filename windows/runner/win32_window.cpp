@@ -218,11 +218,10 @@ Win32Window::MessageHandler(HWND hwnd,
       return 0;
 
     case WM_GETMINMAXINFO: {
-      // 가로는 1400 고정 (min == max), 세로는 720 이상 자유.
+      // 자유 resize 허용. 최소 800×600만 강제, 최대는 OS 기본값(모니터 크기) 사용.
       auto* info = reinterpret_cast<MINMAXINFO*>(lparam);
-      info->ptMinTrackSize.x = 1400;
-      info->ptMaxTrackSize.x = 1400;
-      info->ptMinTrackSize.y = 880;
+      info->ptMinTrackSize.x = 800;
+      info->ptMinTrackSize.y = 600;
       return 0;
     }
   }
