@@ -6,6 +6,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Cutmaster — Flutter desktop app (macOS / Windows) for plywood cut-list optimization. UI/text is Korean (`Locale('ko')`); user-facing strings live in `lib/l10n/app_ko.arb`.
 
+## Development workflow (필수 — superpowers 사용)
+
+### 구현 전: TDD
+신규 피처 구현, 버그 수정, 도메인/UI 로직 변경 작업을 시작할 때는 코드를 작성하기 **전에** `superpowers:test-driven-development` 스킬을 반드시 invoke한다. 실패하는 테스트 → 최소 구현 → 리팩토링 사이클을 따른다. 단순 오타 수정, 포맷팅, 주석 변경, CLAUDE.md/DESIGN.md 같은 문서 변경에는 적용하지 않는다.
+
+### 완료 보고 전: 검증
+"구현 완료", "버그 수정 완료", "테스트 통과", "동작 확인" 등 성공을 주장하기 전, 그리고 `git commit` / PR 생성 전에 반드시 `superpowers:verification-before-completion` 스킬을 invoke한다. `flutter analyze`, `flutter test`, 영향 받는 단위 테스트 등을 실제로 돌리고 그 출력을 확인한 후에만 완료를 보고한다 — evidence before assertions, 추측이나 "동작할 것 같다"는 금지.
+
 ## Design system
 
 UI 작업(위젯·테마·색·간격·타이포)의 단일 소스 오브 트루스는 @DESIGN.md 이다 (Linear-inspired design system). 새 위젯을 만들거나 스타일을 수정할 때는 거기 정의된 토큰·반경 스케일·weight 위계를 따른다. 한글 본문 폰트는 Pretendard로 유지하되 weight/letter-spacing/line-height 규칙은 그대로 적용한다.
