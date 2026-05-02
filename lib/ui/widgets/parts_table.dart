@@ -3,11 +3,14 @@ import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
 
 import '../../data/csv/parts_csv_importer.dart';
 import '../../data/preset/preset_models.dart';
 import '../../domain/models/cut_part.dart';
 import '../../l10n/app_localizations.dart';
+import '../providers/db_provider.dart';
 import '../providers/preset_provider.dart';
 import '../providers/tabs_provider.dart';
 import '../utils/part_color.dart';
@@ -15,6 +18,9 @@ import 'color_swatch_button.dart';
 import 'editable_dimension_table.dart';
 import 'preset_dialog.dart';
 import 'preset_management_dialog.dart' show PresetKind;
+
+/// CSV 가져오기 다이얼로그가 마지막으로 사용한 폴더를 기억하기 위한 setting key.
+const _kCsvImportDirKey = 'last_csv_import_dir';
 
 class PartsTable extends ConsumerWidget {
   const PartsTable({super.key});
@@ -144,15 +150,41 @@ class PartsTable extends ConsumerWidget {
   }
 
   Future<void> _onImportCsv(BuildContext context, WidgetRef ref) async {
+    // 시작 폴더: 마지막 사용 폴더 → 사용자 Documents → 시스템 기본.
+    // macOS는 initialDirectory 미지정 시 picker가 sandbox 기본 위치에서 열려
+    // 사용자가 원하는 폴더로 진입하기 어려움.
+    String? initialDir;
+    try {
+      final db = await ref.read(workspaceDbProvider.future);
+      initialDir = await db.getSetting(_kCsvImportDirKey);
+      if (initialDir != null && !await Directory(initialDir).exists()) {
+        initialDir = null;
+      }
+      initialDir ??= (await getApplicationDocumentsDirectory()).path;
+    } catch (_) {
+      initialDir = null;
+    }
+    if (!context.mounted) return;
+
     final result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
       allowedExtensions: ['csv', 'CSV'],
+      initialDirectory: initialDir,
     );
     if (result == null || result.files.single.path == null) return;
     if (!context.mounted) return;
 
+    // 다음 가져오기를 위해 선택한 파일의 폴더를 기억.
+    final pickedPath = result.files.single.path!;
     try {
-      final file = File(result.files.single.path!);
+      final db = await ref.read(workspaceDbProvider.future);
+      await db.setSetting(_kCsvImportDirKey, p.dirname(pickedPath));
+    } catch (_) {
+      // 영속화 실패는 무시 — 다음 번에 기본값으로 폴백.
+    }
+
+    try {
+      final file = File(pickedPath);
       final text = await file.readAsString();
       final rows = PartsCsvImporter.parse(text);
       if (rows.isEmpty) {
