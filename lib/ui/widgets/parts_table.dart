@@ -21,6 +21,7 @@ import '../theme/app_colors.dart';
 import '../utils/part_color.dart';
 import 'color_swatch_button.dart';
 import 'editable_dimension_table.dart';
+import 'material_name_input.dart';
 import 'parts_merge_dialog.dart';
 import 'preset_dialog.dart';
 import 'preset_management_dialog.dart' show PresetKind;
@@ -148,6 +149,7 @@ class PartsTable extends ConsumerWidget {
         const SizedBox(height: 8),
         _QuickAddPartRow(
           newId: () => 'p${DateTime.now().microsecondsSinceEpoch}',
+          presets: ref.read(presetsProvider),
           onAdd: (part) {
             final updated = [...project.parts, part];
             ref.read(tabsProvider).updateParts(activeId, updated);
@@ -417,10 +419,15 @@ class PartsTable extends ConsumerWidget {
 /// 가로·세로 둘 다 양수일 때만 + 버튼 활성화. Enter 키로 제출 가능.
 /// 폭이 좁으면 Wrap으로 자동 줄바꿈된다.
 class _QuickAddPartRow extends StatefulWidget {
-  const _QuickAddPartRow({required this.newId, required this.onAdd});
+  const _QuickAddPartRow({
+    required this.newId,
+    required this.presets,
+    required this.onAdd,
+  });
 
   final String Function() newId;
   final void Function(CutPart part) onAdd;
+  final PresetsNotifier presets;
 
   @override
   State<_QuickAddPartRow> createState() => _QuickAddPartRowState();
@@ -435,10 +442,6 @@ class _QuickAddPartRowState extends State<_QuickAddPartRow> {
   final _memoCtrl = TextEditingController();
   String? _colorPresetId;
   GrainDirection _grain = GrainDirection.none;
-
-  /// 자재 swatch에 안정적인 색상을 부여하기 위한 가상 entityId — 행 추가마다
-  /// 새로 생성되므로 동일 폼 동안 색상이 흔들리지 않는다.
-  late String _swatchEntityId = widget.newId();
 
   @override
   void dispose() {
@@ -480,7 +483,6 @@ class _QuickAddPartRowState extends State<_QuickAddPartRow> {
     setState(() {
       _colorPresetId = null;
       _grain = GrainDirection.none;
-      _swatchEntityId = widget.newId();
     });
   }
 
@@ -522,11 +524,12 @@ class _QuickAddPartRowState extends State<_QuickAddPartRow> {
               ),
             ),
             SizedBox(
-              width: 96,
-              child: ColorSwatchButton(
-                entityId: _swatchEntityId,
+              width: 140,
+              child: MaterialNameInput(
                 colorPresetId: _colorPresetId,
-                palette: ColorPalette.part,
+                presets: widget.presets,
+                width: 140,
+                hintText: '자재',
                 onChanged: (newPresetId) =>
                     setState(() => _colorPresetId = newPresetId),
               ),
