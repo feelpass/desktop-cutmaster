@@ -19,7 +19,6 @@ import '../providers/preset_provider.dart';
 import '../providers/tabs_provider.dart';
 import '../theme/app_colors.dart';
 import '../utils/part_color.dart';
-import 'color_swatch_button.dart';
 import 'editable_dimension_table.dart';
 import 'material_name_input.dart';
 import 'parts_merge_dialog.dart';
@@ -85,17 +84,34 @@ class PartsTable extends ConsumerWidget {
               .toList(),
           leadingBuilder: (ctx, i) {
             final p = project.parts[i];
-            return ColorSwatchButton(
-              entityId: p.id,
-              colorPresetId: p.colorPresetId,
-              palette: ColorPalette.part,
-              onChanged: (newPresetId) {
-                final updated = [...project.parts];
-                updated[i] = newPresetId == null
-                    ? p.copyWith(clearColor: true)
-                    : p.copyWith(colorPresetId: newPresetId);
-                ref.read(tabsProvider).updateParts(activeId, updated);
-              },
+            final preset = ref.read(presetsProvider).colorById(p.colorPresetId);
+            final color = resolveColor(p.id, preset?.argb, ColorPalette.part);
+            return InkWell(
+              borderRadius: BorderRadius.circular(12),
+              onTap: () => showMaterialEditDialog(
+                context: ctx,
+                presets: ref.read(presetsProvider),
+                currentColorPresetId: p.colorPresetId,
+                onChanged: (newPresetId) {
+                  final updated = [...project.parts];
+                  updated[i] = newPresetId == null
+                      ? p.copyWith(clearColor: true)
+                      : p.copyWith(colorPresetId: newPresetId);
+                  ref.read(tabsProvider).updateParts(activeId, updated);
+                },
+              ),
+              child: Container(
+                width: 16,
+                height: 16,
+                decoration: BoxDecoration(
+                  color: color,
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: const Color(0xFFE6E6E6),
+                    width: 1,
+                  ),
+                ),
+              ),
             );
           },
           onChanged: (rows) {

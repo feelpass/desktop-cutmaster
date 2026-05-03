@@ -150,6 +150,41 @@ class _MaterialNameInputState extends State<MaterialNameInput> {
   }
 }
 
+/// 행 leading의 색상 도트 클릭 시 자재 이름을 텍스트로 편집하는 다이얼로그.
+/// 입력 확정 시 [onChanged]에 새 colorPresetId(자동 생성 포함)를 전달하고
+/// 다이얼로그를 닫는다. "취소"는 [onChanged]를 부르지 않는다.
+Future<void> showMaterialEditDialog({
+  required BuildContext context,
+  required PresetsNotifier presets,
+  required String? currentColorPresetId,
+  required ValueChanged<String?> onChanged,
+}) {
+  return showDialog<void>(
+    context: context,
+    builder: (dctx) => AlertDialog(
+      title: const Text('자재 변경'),
+      content: SizedBox(
+        width: 320,
+        child: MaterialNameInput(
+          colorPresetId: currentColorPresetId,
+          presets: presets,
+          width: 320,
+          onChanged: (newId) {
+            Navigator.of(dctx).pop();
+            onChanged(newId);
+          },
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(dctx).pop(),
+          child: const Text('취소'),
+        ),
+      ],
+    ),
+  );
+}
+
 int _autoArgbForName(String name) {
   final n = name.toLowerCase();
   if (n.contains('화이트') || n.contains('white') || n.contains('백색')) {

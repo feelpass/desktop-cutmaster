@@ -126,4 +126,75 @@ void main() {
     final field = tester.widget<TextFormField>(find.byType(TextFormField));
     expect(field.controller?.text ?? '', '');
   });
+
+  testWidgets('showMaterialEditDialog: 기존 이름 입력 후 submit → onChanged + 닫힘',
+      (tester) async {
+    final presets = await _setupPresets([
+      const ColorPreset(id: 'oak-1', name: '오크', argb: 0xFFAA8855),
+    ]);
+    String? captured = 'INITIAL';
+
+    await tester.pumpWidget(MaterialApp(
+      home: Scaffold(
+        body: Builder(builder: (ctx) {
+          return ElevatedButton(
+            onPressed: () => showMaterialEditDialog(
+              context: ctx,
+              presets: presets,
+              currentColorPresetId: null,
+              onChanged: (id) => captured = id,
+            ),
+            child: const Text('open'),
+          );
+        }),
+      ),
+    ));
+
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextFormField), '오크');
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await tester.pumpAndSettle();
+
+    expect(captured, 'oak-1');
+    // 다이얼로그가 닫혔어야 함 (TextField가 더 이상 보이지 않음)
+    expect(find.byType(TextFormField), findsNothing);
+  });
+
+  testWidgets('showMaterialEditDialog: 취소 → onChanged 호출 안 됨', (tester) async {
+    final presets = await _setupPresets([
+      const ColorPreset(id: 'oak-1', name: '오크', argb: 0xFFAA8855),
+    ]);
+    String? captured = 'INITIAL';
+    var callCount = 0;
+
+    await tester.pumpWidget(MaterialApp(
+      home: Scaffold(
+        body: Builder(builder: (ctx) {
+          return ElevatedButton(
+            onPressed: () => showMaterialEditDialog(
+              context: ctx,
+              presets: presets,
+              currentColorPresetId: 'oak-1',
+              onChanged: (id) {
+                captured = id;
+                callCount++;
+              },
+            ),
+            child: const Text('open'),
+          );
+        }),
+      ),
+    ));
+
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('취소'));
+    await tester.pumpAndSettle();
+
+    expect(callCount, 0);
+    expect(captured, 'INITIAL');
+  });
 }
