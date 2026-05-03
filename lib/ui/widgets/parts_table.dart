@@ -9,6 +9,7 @@ import 'package:path_provider/path_provider.dart';
 import '../../data/csv/parts_csv_exporter.dart';
 import '../../data/csv/parts_csv_importer.dart';
 import '../../data/excel/parts_excel_importer.dart';
+import '../../data/import/parts_merge.dart';
 import '../../data/preset/preset_models.dart';
 import '../../domain/models/cut_part.dart';
 import '../../domain/models/stock_sheet.dart' show GrainDirection;
@@ -20,6 +21,7 @@ import '../theme/app_colors.dart';
 import '../utils/part_color.dart';
 import 'color_swatch_button.dart';
 import 'editable_dimension_table.dart';
+import 'parts_merge_dialog.dart';
 import 'preset_dialog.dart';
 import 'preset_management_dialog.dart' show PresetKind;
 
@@ -254,8 +256,27 @@ class PartsTable extends ConsumerWidget {
         ));
       }
 
-      // 기존 부품 뒤에 append — 새로 불러올 때 이전 목록은 보존.
-      tabs.updateParts(activeId, [...project.parts, ...parts]);
+      // 충돌 감지 후 사용자 액션에 따라 머지.
+      final conflicts = detectConflicts(project.parts, parts);
+      MergeAction action;
+      if (conflicts.isEmpty) {
+        // 충돌 0건이면 단순 append (기존 동작 유지).
+        action = MergeAction.overwrite; // overwrite는 비충돌 행만 append하므로 동등.
+      } else {
+        if (!context.mounted) return;
+        final picked = await showPartsMergeDialog(context, conflicts);
+        action = picked ?? MergeAction.cancel;
+      }
+      if (action == MergeAction.cancel) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('가져오기를 취소했습니다')),
+          );
+        }
+        return;
+      }
+      final result = applyMerge(project.parts, parts, action);
+      tabs.updateParts(activeId, result.mergedParts);
 
       // ARTICLE → 프로젝트명 (비어있을 때만)
       final article = rows.first.article;
@@ -266,7 +287,7 @@ class PartsTable extends ConsumerWidget {
 
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('${parts.length}개 부품을 가져왔습니다')),
+          SnackBar(content: Text(_summary(result))),
         );
       }
     } catch (e) {
@@ -377,6 +398,17 @@ class PartsTable extends ConsumerWidget {
     }
     final h = name.hashCode.toUnsigned(24);
     return 0xFF000000 | h;
+  }
+
+  /// import 결과 통계를 한 줄 메시지로 요약.
+  String _summary(PartsMergeResult r) {
+    final parts = <String>[];
+    if (r.addedCount > 0) parts.add('추가 ${r.addedCount}');
+    if (r.qtyMergedCount > 0) parts.add('수량 합산 ${r.qtyMergedCount}');
+    if (r.overwrittenCount > 0) parts.add('덮어쓰기 ${r.overwrittenCount}');
+    if (r.renamedCount > 0) parts.add('이름 변경 추가 ${r.renamedCount}');
+    if (parts.isEmpty) return '변경 사항이 없습니다';
+    return parts.join(', ');
   }
 }
 
