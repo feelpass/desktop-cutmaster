@@ -137,8 +137,46 @@ class SheetPainter {
           ..strokeWidth = 1.8,
       );
 
+      if (pp.part.grainDirection != GrainDirection.none) {
+        _paintGrain(canvas, partRect, pp);
+      }
+
       if (showLabels) {
         _paintPartLabel(canvas, partRect, pp, color);
+      }
+    }
+  }
+
+  /// 결 방향(가로결)을 따라 가는 평행선을 그려 나뭇결 시각화.
+  /// 결은 부품의 길이축(part.length)을 따라 흐른다. 배치 시 rotated=true면
+  /// 길이축이 캔버스 세로축이 되므로 줄무늬도 세로로 그린다.
+  void _paintGrain(Canvas canvas, Rect rect, PlacedPart pp) {
+    final paint = Paint()
+      ..color = AppColors.textPrimary.withValues(alpha: 0.35)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 0.8;
+    // 줄무늬는 길이축에 평행. rotated=false면 가로(X축), true면 세로(Y축).
+    final horizontalStripes = !pp.rotated;
+    const stripeCount = 4;
+    final span = horizontalStripes ? rect.height : rect.width;
+    final step = span / (stripeCount + 1);
+    final inset = math.min(6.0, span * 0.15);
+    for (var i = 1; i <= stripeCount; i++) {
+      final t = step * i;
+      if (horizontalStripes) {
+        final y = rect.top + t;
+        canvas.drawLine(
+          Offset(rect.left + inset, y),
+          Offset(rect.right - inset, y),
+          paint,
+        );
+      } else {
+        final x = rect.left + t;
+        canvas.drawLine(
+          Offset(x, rect.top + inset),
+          Offset(x, rect.bottom - inset),
+          paint,
+        );
       }
     }
   }
