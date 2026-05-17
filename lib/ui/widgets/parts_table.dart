@@ -47,6 +47,17 @@ class PartsTable extends ConsumerWidget {
           children: [
             const Spacer(),
             OutlinedButton.icon(
+              onPressed: project.parts.isEmpty
+                  ? null
+                  : () => _onClearAllParts(context, ref, activeId),
+              icon: const Icon(Icons.delete_sweep_outlined, size: 14),
+              label: const Text('부품 목록 모두 지우기'),
+              style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  minimumSize: const Size(0, 28)),
+            ),
+            const SizedBox(width: 6),
+            OutlinedButton.icon(
               onPressed: () => _onExportCsv(context, ref),
               icon: const Icon(Icons.file_download_outlined, size: 14),
               label: const Text('CSV 내보내기'),
@@ -314,6 +325,34 @@ class PartsTable extends ConsumerWidget {
           SnackBar(content: Text('가져오기 실패: $e')),
         );
       }
+    }
+  }
+
+  Future<void> _onClearAllParts(
+    BuildContext context,
+    WidgetRef ref,
+    String activeId,
+  ) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('부품 목록 모두 지우기'),
+        content: const Text('현재 탭의 모든 부품을 삭제합니다. 계속하시겠습니까?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('취소'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: AppColors.danger),
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('모두 지우기'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true) {
+      ref.read(tabsProvider).updateParts(activeId, const []);
     }
   }
 
