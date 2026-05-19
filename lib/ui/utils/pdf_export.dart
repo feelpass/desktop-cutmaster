@@ -9,6 +9,7 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 
 import '../../domain/models/cutting_plan.dart';
+import '../../domain/models/plan_summary.dart';
 import '../../domain/models/stock_sheet.dart';
 import 'sheet_painter.dart';
 
@@ -32,6 +33,7 @@ Future<void> exportSheetsToPdf(
   List<StockSheet> stocks,
   bool showLabels, {
   required int? Function(String? colorPresetId) colorLookup,
+  required String? Function(String? colorPresetId) colorName,
   double rasterDpi = 100,
 }) async {
   final initialFileName =
@@ -44,6 +46,17 @@ Future<void> exportSheetsToPdf(
   );
   if (outPath == null) return;
 
+  // 진행 표시 — raster가 무거우면 사용자에게 즉시 피드백 (몇 초 걸릴 수 있음).
+  final messenger = context.mounted ? ScaffoldMessenger.of(context) : null;
+  messenger?.showSnackBar(
+    SnackBar(
+      content: Text('PDF 생성 중… (${plan.sheets.length}개 시트)'),
+      duration: const Duration(seconds: 30),
+    ),
+  );
+  // SnackBar가 그려질 수 있게 한 프레임 양보.
+  await Future<void>.delayed(Duration.zero);
+
   final stockById = {for (final s in stocks) s.id: s};
   final korean = await _loadKoreanFont();
   final doc = pw.Document(
@@ -52,6 +65,10 @@ Future<void> exportSheetsToPdf(
       bold: korean, // Regular만 임베드 — bold 요청 시 동일 폰트 fallback
     ),
   );
+
+  // 첫 페이지: 재료/부품 요약 표.
+  final summary = PlanSummary.fromPlan(plan, colorName: colorName);
+  doc.addPage(_buildSummaryPage(summary));
 
   for (int i = 0; i < plan.sheets.length; i++) {
     final s = plan.sheets[i];
@@ -63,6 +80,8 @@ Future<void> exportSheetsToPdf(
       rasterDpi,
       colorLookup,
     );
+    // 시트 사이 한 프레임 양보 — UI freeze 방지.
+    await Future<void>.delayed(Duration.zero);
     if (imgBytes == null) continue;
 
     final headerText = _headerText(
@@ -110,10 +129,101 @@ Future<void> exportSheetsToPdf(
   await File(outPath).writeAsBytes(bytes);
 
   if (context.mounted) {
-    ScaffoldMessenger.of(context).showSnackBar(
+    final m = ScaffoldMessenger.of(context);
+    m.hideCurrentSnackBar();
+    m.showSnackBar(
       SnackBar(content: Text('${plan.sheets.length}개 시트 PDF로 저장했습니다.')),
     );
   }
+}
+
+/// 첫 페이지: 재료 사용량 표 + 부품 목록 표.
+pw.Page _buildSummaryPage(PlanSummary s) {
+  final dateStr = DateTime.now().toIso8601String().substring(0, 10);
+  return pw.MultiPage(
+    pageFormat: PdfPageFormat.a4,
+    margin: const pw.EdgeInsets.all(36),
+    build: (ctx) => [
+      pw.Text('컷마스터 최적화 결과',
+          style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold)),
+      pw.SizedBox(height: 4),
+      pw.Text('작성일 $dateStr',
+          style: pw.TextStyle(fontSize: 10, color: PdfColors.grey700)),
+      pw.SizedBox(height: 16),
+
+      // KPI 한 줄.
+      pw.Text(
+        '효율 ${s.efficiencyPercent.toStringAsFixed(1)}%   '
+        '· 시트 ${s.totalSheets}장   '
+        '· 부품 ${s.totalPlacedParts}개   '
+        '· 절단 ${s.cutsAreEstimated ? "≈" : ""}${s.totalCuts}회',
+        style: pw.TextStyle(fontSize: 11, color: PdfColors.grey800),
+      ),
+      pw.SizedBox(height: 18),
+
+      // 재료 표.
+      pw.Text('재료',
+          style: pw.TextStyle(fontSize: 13, fontWeight: pw.FontWeight.bold)),
+      pw.SizedBox(height: 6),
+      pw.TableHelper.fromTextArray(
+        headers: ['자재', '시트 수', '사용 면적 (m²)'],
+        data: [
+          for (final m in s.materialUsages)
+            [
+              m.name,
+              m.sheetCount.toString(),
+              (m.usedAreaMm2 / 1e6).toStringAsFixed(3),
+            ],
+        ],
+        headerStyle:
+            pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold),
+        cellStyle: const pw.TextStyle(fontSize: 10),
+        cellAlignments: {
+          0: pw.Alignment.centerLeft,
+          1: pw.Alignment.centerRight,
+          2: pw.Alignment.centerRight,
+        },
+        border: pw.TableBorder.all(color: PdfColors.grey400, width: 0.5),
+        headerDecoration: const pw.BoxDecoration(color: PdfColors.grey200),
+        cellPadding:
+            const pw.EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+      ),
+
+      pw.SizedBox(height: 18),
+
+      // 부품 표.
+      pw.Text('부품',
+          style: pw.TextStyle(fontSize: 13, fontWeight: pw.FontWeight.bold)),
+      pw.SizedBox(height: 6),
+      pw.TableHelper.fromTextArray(
+        headers: ['부품명', '길이 (mm)', '폭 (mm)', '자재', '수량'],
+        data: [
+          for (final p in s.partGroups)
+            [
+              p.label,
+              p.length.toStringAsFixed(0),
+              p.width.toStringAsFixed(0),
+              p.materialName,
+              p.qty.toString(),
+            ],
+        ],
+        headerStyle:
+            pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold),
+        cellStyle: const pw.TextStyle(fontSize: 10),
+        cellAlignments: {
+          0: pw.Alignment.centerLeft,
+          1: pw.Alignment.centerRight,
+          2: pw.Alignment.centerRight,
+          3: pw.Alignment.centerLeft,
+          4: pw.Alignment.centerRight,
+        },
+        border: pw.TableBorder.all(color: PdfColors.grey400, width: 0.5),
+        headerDecoration: const pw.BoxDecoration(color: PdfColors.grey200),
+        cellPadding:
+            const pw.EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+      ),
+    ],
+  );
 }
 
 String _headerText(

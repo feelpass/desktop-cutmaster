@@ -17,13 +17,21 @@ Future<void> showResultDialog(BuildContext context) {
   );
 }
 
-class _ResultDialog extends ConsumerWidget {
+class _ResultDialog extends ConsumerStatefulWidget {
   const _ResultDialog();
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_ResultDialog> createState() => _ResultDialogState();
+}
+
+class _ResultDialogState extends ConsumerState<_ResultDialog> {
+  String? _exportingMessage; // null이면 export 중 아님
+
+  @override
+  Widget build(BuildContext context) {
     final plan = ref.watch(displayedPlanProvider);
     final size = MediaQuery.of(context).size;
+    final exporting = _exportingMessage;
 
     return Dialog(
       insetPadding: const EdgeInsets.all(24),
@@ -36,23 +44,80 @@ class _ResultDialog extends ConsumerWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             _DialogHeader(
-              onClose: () => Navigator.of(context).pop(),
+              onClose: exporting != null
+                  ? null
+                  : () => Navigator.of(context).pop(),
             ),
             Divider(height: 1, color: context.colors.border),
             Expanded(
-              child: plan == null
-                  ? const EmptyResult()
-                  : Row(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        ResultSummaryPanel(plan: plan),
-                        VerticalDivider(
-                            width: 1, color: context.colors.border),
-                        Expanded(child: CuttingResultPane(plan: plan)),
-                      ],
-                    ),
+              child: Stack(
+                children: [
+                  plan == null
+                      ? const EmptyResult()
+                      : Row(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            ResultSummaryPanel(
+                              plan: plan,
+                              onExportStart: (msg) =>
+                                  setState(() => _exportingMessage = msg),
+                              onExportEnd: () =>
+                                  setState(() => _exportingMessage = null),
+                            ),
+                            VerticalDivider(
+                                width: 1, color: context.colors.border),
+                            Expanded(child: CuttingResultPane(plan: plan)),
+                          ],
+                        ),
+                  if (exporting != null) _LoadingOverlay(message: exporting),
+                ],
+              ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _LoadingOverlay extends StatelessWidget {
+  const _LoadingOverlay({required this.message});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    return Positioned.fill(
+      child: ColoredBox(
+        color: Colors.black.withValues(alpha: 0.35),
+        child: Center(
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+            decoration: BoxDecoration(
+              color: context.colors.surface,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: context.colors.border),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2.4),
+                ),
+                const SizedBox(width: 14),
+                Text(
+                  message,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                    color: context.colors.textPrimary,
+                  ),
+                ),
+              ],
+            ),
+          ),
         ),
       ),
     );
@@ -62,7 +127,7 @@ class _ResultDialog extends ConsumerWidget {
 class _DialogHeader extends StatelessWidget {
   const _DialogHeader({required this.onClose});
 
-  final VoidCallback onClose;
+  final VoidCallback? onClose;
 
   @override
   Widget build(BuildContext context) {

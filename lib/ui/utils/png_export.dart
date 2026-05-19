@@ -32,6 +32,15 @@ Future<void> exportSheetsToPng(
   );
   if (dir == null) return;
 
+  final messenger = context.mounted ? ScaffoldMessenger.of(context) : null;
+  messenger?.showSnackBar(
+    SnackBar(
+      content: Text('PNG 생성 중… (${plan.sheets.length}개 시트)'),
+      duration: const Duration(seconds: 30),
+    ),
+  );
+  await Future<void>.delayed(Duration.zero);
+
   final stockById = {for (final s in stocks) s.id: s};
   final total = plan.sheets.length;
 
@@ -47,13 +56,16 @@ Future<void> exportSheetsToPng(
       sheetNum: i + 1,
       sheetTotal: total,
     );
+    await Future<void>.delayed(Duration.zero);
     if (png == null) continue;
     final file = File('$dir/cutmaster-sheet-${i + 1}.png');
     await file.writeAsBytes(png);
   }
 
   if (context.mounted) {
-    ScaffoldMessenger.of(context).showSnackBar(
+    final m = ScaffoldMessenger.of(context);
+    m.hideCurrentSnackBar();
+    m.showSnackBar(
       SnackBar(content: Text('${plan.sheets.length}개 PNG 파일을 저장했습니다.')),
     );
   }

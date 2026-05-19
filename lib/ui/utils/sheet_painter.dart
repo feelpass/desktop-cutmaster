@@ -41,25 +41,38 @@ class SheetPainter {
   /// 32px 정도, live canvas는 0(헤더 없음).
   final double headerHeightPx;
 
+  /// 캔버스 px/mm 비율의 라이브 캔버스 기준값. 실제 캔버스의 scaleX가
+  /// 이보다 크면(고해상도 export) 글꼴/외곽선 두께 등을 그 비율만큼 확대해
+  /// 라이브와 동일한 시각 비율을 유지한다.
+  /// 라이브 캔버스가 2440mm 시트를 약 800–1000px 폭으로 렌더링하는
+  /// 일반적인 상황에 맞춘 값(0.4 px/mm).
+  static const double _referencePxPerMm = 0.4;
+
   void paint(Canvas canvas, Size size) {
-    final headerH = (headerText != null) ? headerHeightPx : 0.0;
+    // 현재 캔버스의 px/mm. 라이브는 약 0.4, PNG 75dpi는 약 2.95, PDF 100dpi는 약 3.94.
+    final pxPerMm = sheet.sheetLength > 0 ? size.width / sheet.sheetLength : 1.0;
+    final fontScale = math.max(1.0, pxPerMm / _referencePxPerMm);
+
+    // 헤더 자체도 스케일에 맞춰 확대 (export 헤더가 너무 얇지 않도록).
+    final headerH =
+        (headerText != null) ? headerHeightPx * fontScale : 0.0;
     final sheetRect = Rect.fromLTWH(0, headerH, size.width, size.height - headerH);
 
     if (headerText != null) {
-      _paintHeader(canvas, Rect.fromLTWH(0, 0, size.width, headerH));
+      _paintHeader(canvas, Rect.fromLTWH(0, 0, size.width, headerH), fontScale);
     }
-    _paintSheet(canvas, sheetRect);
+    _paintSheet(canvas, sheetRect, fontScale);
   }
 
-  void _paintHeader(Canvas canvas, Rect rect) {
+  void _paintHeader(Canvas canvas, Rect rect, double fontScale) {
     final tp = TextPainter(
       text: TextSpan(
         text: headerText,
-        style: const TextStyle(
+        style: TextStyle(
           color: AppColors.textSecondary,
-          fontSize: 11,
+          fontSize: 11 * fontScale,
           fontWeight: FontWeight.w500,
-          letterSpacing: -0.11,
+          letterSpacing: -0.11 * fontScale,
         ),
       ),
       textDirection: TextDirection.ltr,
@@ -71,7 +84,7 @@ class SheetPainter {
     tp.paint(canvas, Offset(rect.left + 4, dy < rect.top ? rect.top : dy));
   }
 
-  void _paintSheet(Canvas canvas, Rect rect) {
+  void _paintSheet(Canvas canvas, Rect rect, double fontScale) {
     final scaleX = rect.width / sheet.sheetLength;
     final scaleY = rect.height / sheet.sheetWidth;
 
@@ -142,7 +155,7 @@ class SheetPainter {
       }
 
       if (showLabels) {
-        _paintPartLabel(canvas, partRect, pp, color);
+        _paintPartLabel(canvas, partRect, pp, color, fontScale);
       }
     }
   }
@@ -184,7 +197,8 @@ class SheetPainter {
   /// 부품 라벨 표시 — 위쪽 가운데에 가로 변 치수, 왼쪽 가운데에 세로 변 치수
   /// (90° 회전), 정중앙에 부품 이름. 부품 이름은 부품의 긴쪽 방향에 맞춰
   /// 회전된다 (가로형이면 가로, 세로형이면 90° 회전).
-  void _paintPartLabel(Canvas canvas, Rect rect, PlacedPart pp, Color color) {
+  void _paintPartLabel(
+      Canvas canvas, Rect rect, PlacedPart pp, Color color, double fontScale) {
     final drawL = pp.drawLength;
     final drawW = pp.drawWidth;
 
@@ -192,9 +206,9 @@ class SheetPainter {
     // 어두운 부품 색 위에서도 가독성을 보장한다.
     const textColor = AppColors.textPrimary;
 
-    const dimFontSize = 15.0;
-    const nameFontSize = 17.0;
-    const inset = 8.0; // 텍스트 ↔ 부품 외곽선 사이 마진
+    final dimFontSize = 15.0 * fontScale;
+    final nameFontSize = 17.0 * fontScale;
+    final inset = 8.0 * fontScale; // 텍스트 ↔ 부품 외곽선 사이 마진
 
     // 위쪽 가운데: 가로 변 길이 (drawLength).
     _drawCenteredText(
@@ -268,9 +282,10 @@ class SheetPainter {
     required double fontSize,
     required Color textColor,
   }) {
+    // outline 두께는 글꼴 크기에 비례 (15px font에 3.5px 비율 ≈ 0.23).
     final outlinePaint = Paint()
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 3.5
+      ..strokeWidth = fontSize * 0.23
       ..color = Colors.white;
     final outlineTp = TextPainter(
       text: TextSpan(

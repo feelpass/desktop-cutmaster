@@ -14,9 +14,19 @@ import '../utils/png_export.dart';
 /// 결과 다이얼로그 좌측 통계 패널.
 /// KPI 5개 + 자재 목록 + 부품 그룹 + 하단 PNG/PDF 내보내기.
 class ResultSummaryPanel extends ConsumerWidget {
-  const ResultSummaryPanel({super.key, required this.plan});
+  const ResultSummaryPanel({
+    super.key,
+    required this.plan,
+    this.onExportStart,
+    this.onExportEnd,
+  });
 
   final CuttingPlan plan;
+
+  /// PDF/PNG 내보내기 시작/종료를 부모에게 알린다. 부모(_ResultDialog)는
+  /// 이 시그널로 로딩 오버레이를 띄운다. null이면 알림 비활성.
+  final void Function(String message)? onExportStart;
+  final VoidCallback? onExportEnd;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -139,19 +149,27 @@ class ResultSummaryPanel extends ConsumerWidget {
                   child: OutlinedButton.icon(
                     onPressed: plan.sheets.isEmpty
                         ? null
-                        : () => exportSheetsToPng(
-                              context,
-                              plan,
-                              ref
-                                  .read(tabsProvider)
-                                  .active!
-                                  .project
-                                  .derivedStocks(),
-                              showLabels,
-                              colorLookup: (id) => id == null
-                                  ? null
-                                  : presets.colorById(id)?.argb,
-                            ),
+                        : () async {
+                            onExportStart?.call(
+                                'PNG 생성 중… (${plan.sheets.length}개 시트)');
+                            try {
+                              await exportSheetsToPng(
+                                context,
+                                plan,
+                                ref
+                                    .read(tabsProvider)
+                                    .active!
+                                    .project
+                                    .derivedStocks(),
+                                showLabels,
+                                colorLookup: (id) => id == null
+                                    ? null
+                                    : presets.colorById(id)?.argb,
+                              );
+                            } finally {
+                              onExportEnd?.call();
+                            }
+                          },
                     icon: const Icon(Icons.image_outlined, size: 16),
                     label: Text(t.exportPng),
                   ),
@@ -161,19 +179,30 @@ class ResultSummaryPanel extends ConsumerWidget {
                   child: OutlinedButton.icon(
                     onPressed: plan.sheets.isEmpty
                         ? null
-                        : () => exportSheetsToPdf(
-                              context,
-                              plan,
-                              ref
-                                  .read(tabsProvider)
-                                  .active!
-                                  .project
-                                  .derivedStocks(),
-                              showLabels,
-                              colorLookup: (id) => id == null
-                                  ? null
-                                  : presets.colorById(id)?.argb,
-                            ),
+                        : () async {
+                            onExportStart?.call(
+                                'PDF 생성 중… (${plan.sheets.length}개 시트)');
+                            try {
+                              await exportSheetsToPdf(
+                                context,
+                                plan,
+                                ref
+                                    .read(tabsProvider)
+                                    .active!
+                                    .project
+                                    .derivedStocks(),
+                                showLabels,
+                                colorLookup: (id) => id == null
+                                    ? null
+                                    : presets.colorById(id)?.argb,
+                                colorName: (id) => id == null
+                                    ? null
+                                    : presets.colorById(id)?.name,
+                              );
+                            } finally {
+                              onExportEnd?.call();
+                            }
+                          },
                     icon: const Icon(Icons.picture_as_pdf, size: 16),
                     label: Text(t.exportPdf),
                   ),
