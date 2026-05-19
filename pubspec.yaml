@@ -1,7 +1,7 @@
 name: cutmaster
 description: "합판 재단 최적화 데스크톱 앱"
 publish_to: 'none'
-version: 0.1.4+5
+version: 0.1.5+6
 
 environment:
   sdk: ^3.10.8
