@@ -15,6 +15,7 @@ import 'data/preset/color_matcher.dart';
 import 'data/preset/preset_repository.dart';
 import 'l10n/app_localizations.dart';
 import 'ui/main_screen.dart';
+import 'ui/providers/left_pane_split_provider.dart';
 import 'ui/providers/preset_provider.dart';
 import 'ui/providers/tabs_provider.dart';
 import 'ui/providers/theme_mode_provider.dart';
@@ -72,11 +73,15 @@ Future<void> main() async {
   final initialThemeMode = await ThemeModeNotifier.loadInitial(ws);
   final themeNotifier = ThemeModeNotifier(ws, initialThemeMode);
 
+  final initialSplit = await LeftPaneSplitNotifier.loadInitial(ws);
+  final splitNotifier = LeftPaneSplitNotifier(ws, initialSplit);
+
   runApp(ProviderScope(
     overrides: [
       tabsProvider.overrideWith((_) => notifier),
       presetsProvider.overrideWith((_) => presetsNotifier),
       themeModeProvider.overrideWith((_) => themeNotifier),
+      leftPaneSplitProvider.overrideWith((_) => splitNotifier),
     ],
     child: const CutmasterApp(),
   ));

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../providers/left_pane_split_provider.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_text_styles.dart';
 import 'cutting_conditions_section.dart';
@@ -9,54 +10,131 @@ import 'parts_table.dart';
 import 'preset_management_dialog.dart';
 
 /// 입력 화면 — 상단 가로 split (주문정보 | 재단조건) + 하단 (부품 목록 입력 풀너비).
-/// 상단은 자연 높이로 줄여 화면 자원을 부품 목록에 양보.
-class LeftPane extends ConsumerWidget {
+/// 상단/하단 경계는 드래그로 조절 가능 (높이는 WorkspaceDb에 영속).
+class LeftPane extends ConsumerStatefulWidget {
   const LeftPane({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<LeftPane> createState() => _LeftPaneState();
+}
+
+class _LeftPaneState extends ConsumerState<LeftPane> {
+  // 드래그 중에는 로컬 상태로 즉시 반영, 종료 시 영속 저장.
+  double? _dragHeight;
+  bool _orderExpanded = true;
+  bool _conditionsExpanded = true;
+
+  @override
+  Widget build(BuildContext context) {
     final c = context.colors;
-    return Container(
-      color: c.surface,
-      child: Column(
+    final persistedHeight = ref.watch(leftPaneSplitProvider);
+    final topAnyExpanded = _orderExpanded || _conditionsExpanded;
+
+    return LayoutBuilder(builder: (context, constraints) {
+      const bottomMin = 160.0;
+      final available = constraints.maxHeight;
+      final maxTop = (available - bottomMin)
+          .clamp(kLeftPaneTopHeightMin, kLeftPaneTopHeightMax);
+      final rawHeight = _dragHeight ?? persistedHeight;
+      final topHeight =
+          rawHeight.clamp(kLeftPaneTopHeightMin, maxTop).toDouble();
+
+      final topRow = Row(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // 상단: 주문 정보 (좌) + 재단 조건 (우) — 고정 높이로 부품 목록 영역에 화면 양보.
-          SizedBox(
-            height: 540,
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                const Expanded(
-                  child: LeftPaneSection(
-                    title: '1. 주문 정보',
-                    icon: Icons.receipt_long_outlined,
-                    child: OrderInfoSection(),
-                  ),
-                ),
-                VerticalDivider(width: 1, color: c.border),
-                const Expanded(
-                  child: LeftPaneSection(
-                    title: '2. 재단 조건',
-                    icon: Icons.tune,
-                    child: CuttingConditionsSection(),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Divider(height: 1, color: c.border),
-          // 하단: 부품 목록 입력 (남은 영역 전체)
           Expanded(
             child: LeftPaneSection(
-              title: '3. 부품 목록 입력',
-              icon: Icons.inventory_2_outlined,
-              onSettings: () =>
-                  showPresetManagementDialog(context, PresetKind.part),
-              child: const PartsTable(),
+              title: '1. 주문 정보',
+              icon: Icons.receipt_long_outlined,
+              expanded: _orderExpanded,
+              onExpandedChanged: (v) => setState(() => _orderExpanded = v),
+              child: const OrderInfoSection(),
+            ),
+          ),
+          VerticalDivider(width: 1, color: c.border),
+          Expanded(
+            child: LeftPaneSection(
+              title: '2. 재단 조건',
+              icon: Icons.tune,
+              expanded: _conditionsExpanded,
+              onExpandedChanged: (v) =>
+                  setState(() => _conditionsExpanded = v),
+              child: const CuttingConditionsSection(),
             ),
           ),
         ],
+      );
+
+      return Container(
+        color: c.surface,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // 둘 다 접히면 자연 높이(헤더만), 하나라도 펼쳐지면 드래그 가능한 고정 높이.
+            // unbounded height context에서 Row+VerticalDivider+stretch가 무너지므로
+            // 접힘 상태에서는 IntrinsicHeight로 헤더 높이를 측정.
+            if (topAnyExpanded)
+              SizedBox(height: topHeight, child: topRow)
+            else
+              IntrinsicHeight(child: topRow),
+            // 드래그 핸들은 상단이 펼쳐져 있을 때만 노출.
+            if (topAnyExpanded)
+              _SplitHandle(
+                onDragUpdate: (dy) {
+                  setState(() {
+                    _dragHeight = (_dragHeight ?? persistedHeight) + dy;
+                  });
+                },
+                onDragEnd: () {
+                  final d = _dragHeight;
+                  _dragHeight = null;
+                  if (d != null) {
+                    ref
+                        .read(leftPaneSplitProvider.notifier)
+                        .setHeight(d.clamp(kLeftPaneTopHeightMin, maxTop));
+                  }
+                },
+              )
+            else
+              Divider(height: 1, color: c.border),
+            Expanded(
+              child: LeftPaneSection(
+                title: '3. 부품 목록 입력',
+                icon: Icons.inventory_2_outlined,
+                onSettings: () =>
+                    showPresetManagementDialog(context, PresetKind.part),
+                child: const PartsTable(),
+              ),
+            ),
+          ],
+        ),
+      );
+    });
+  }
+}
+
+/// 좌측 패널 상/하단 경계 드래그 핸들 — 위아래 리사이즈 커서.
+class _SplitHandle extends StatelessWidget {
+  const _SplitHandle({required this.onDragUpdate, required this.onDragEnd});
+
+  final ValueChanged<double> onDragUpdate;
+  final VoidCallback onDragEnd;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    return MouseRegion(
+      cursor: SystemMouseCursors.resizeUpDown,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onVerticalDragUpdate: (d) => onDragUpdate(d.delta.dy),
+        onVerticalDragEnd: (_) => onDragEnd(),
+        onVerticalDragCancel: onDragEnd,
+        child: Container(
+          height: 6,
+          alignment: Alignment.center,
+          child: Container(height: 1, color: c.border),
+        ),
       ),
     );
   }
@@ -72,6 +150,8 @@ class LeftPaneSection extends StatefulWidget {
     required this.icon,
     required this.child,
     this.onSettings,
+    this.expanded,
+    this.onExpandedChanged,
   });
 
   final String title;
@@ -81,12 +161,27 @@ class LeftPaneSection extends StatefulWidget {
   /// 헤더 우측 ⚙️ 버튼 콜백. null이면 버튼이 렌더되지 않는다.
   final VoidCallback? onSettings;
 
+  /// controlled 모드: null이면 내부 상태로 동작, 값이 있으면 부모가 제어.
+  final bool? expanded;
+  final ValueChanged<bool>? onExpandedChanged;
+
   @override
   State<LeftPaneSection> createState() => _LeftPaneSectionState();
 }
 
 class _LeftPaneSectionState extends State<LeftPaneSection> {
-  bool _expanded = true;
+  bool _internalExpanded = true;
+
+  bool get _expanded => widget.expanded ?? _internalExpanded;
+
+  void _toggle() {
+    final next = !_expanded;
+    if (widget.onExpandedChanged != null) {
+      widget.onExpandedChanged!(next);
+    } else {
+      setState(() => _internalExpanded = next);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -97,7 +192,7 @@ class _LeftPaneSectionState extends State<LeftPaneSection> {
         Material(
           color: c.sectionHeaderBg,
           child: InkWell(
-            onTap: () => setState(() => _expanded = !_expanded),
+            onTap: _toggle,
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
               child: Row(

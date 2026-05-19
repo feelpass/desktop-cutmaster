@@ -10,6 +10,7 @@ import 'package:cutmaster/data/file/project_file.dart';
 import 'package:cutmaster/data/local/workspace_db.dart';
 import 'package:cutmaster/data/preset/preset_repository.dart';
 import 'package:cutmaster/l10n/app_localizations.dart';
+import 'package:cutmaster/ui/providers/left_pane_split_provider.dart';
 import 'package:cutmaster/ui/providers/preset_provider.dart';
 import 'package:cutmaster/ui/providers/tabs_provider.dart';
 import 'package:cutmaster/ui/widgets/left_pane.dart';
@@ -59,6 +60,8 @@ void main() {
         overrides: [
           tabsProvider.overrideWith((_) => tabs),
           presetsProvider.overrideWith((_) => presets),
+          leftPaneSplitProvider.overrideWith(
+              (_) => LeftPaneSplitNotifier(ws, kLeftPaneTopHeightDefault)),
         ],
         child: MaterialApp(
           localizationsDelegates: AppLocalizations.localizationsDelegates,
