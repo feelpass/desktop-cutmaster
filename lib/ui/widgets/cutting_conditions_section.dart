@@ -223,7 +223,7 @@ class _HeadcutRow extends StatelessWidget {
 }
 
 /// [-] [숫자 입력] [+] 컴팩트 스테퍼. 텍스트 직접 입력도 가능.
-class _NumberStepper extends StatelessWidget {
+class _NumberStepper extends StatefulWidget {
   const _NumberStepper({
     required this.controller,
     required this.width,
@@ -240,31 +240,62 @@ class _NumberStepper extends StatelessWidget {
   final double max;
   final ValueChanged<double> onCommit;
 
+  @override
+  State<_NumberStepper> createState() => _NumberStepperState();
+}
+
+class _NumberStepperState extends State<_NumberStepper> {
+  late final FocusNode _focusNode;
+
+  @override
+  void initState() {
+    super.initState();
+    _focusNode = FocusNode();
+    // 포커스를 잃을 때(다른 위젯 클릭/unfocus 포함) 현재 값을 커밋.
+    // Enter/Tab 없이 바로 "최적화 실행"을 눌러도 입력 값이 반영되도록 함.
+    _focusNode.addListener(_onFocusChange);
+  }
+
+  @override
+  void dispose() {
+    _focusNode.removeListener(_onFocusChange);
+    _focusNode.dispose();
+    super.dispose();
+  }
+
+  void _onFocusChange() {
+    if (!_focusNode.hasFocus) {
+      widget.onCommit(double.tryParse(widget.controller.text) ?? 0);
+    }
+  }
+
   void _bump(double delta) {
-    final cur = double.tryParse(controller.text) ?? 0;
+    final cur = double.tryParse(widget.controller.text) ?? 0;
     var next = cur + delta;
-    if (next < min) next = min;
-    if (next > max) next = max;
-    final str =
-        next == next.toInt() ? next.toInt().toString() : next.toStringAsFixed(1);
-    controller.text = str;
-    onCommit(next);
+    if (next < widget.min) next = widget.min;
+    if (next > widget.max) next = widget.max;
+    final str = next == next.toInt()
+        ? next.toInt().toString()
+        : next.toStringAsFixed(1);
+    widget.controller.text = str;
+    widget.onCommit(next);
   }
 
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      width: width,
+      width: widget.width,
       height: 30,
       child: Row(
         children: [
           _StepBtn(
             icon: Icons.remove,
-            onPressed: () => _bump(-step),
+            onPressed: () => _bump(-widget.step),
           ),
           Expanded(
             child: TextField(
-              controller: controller,
+              controller: widget.controller,
+              focusNode: _focusNode,
               textAlign: TextAlign.center,
               keyboardType:
                   const TextInputType.numberWithOptions(decimal: true),
@@ -277,14 +308,15 @@ class _NumberStepper extends StatelessWidget {
                   borderRadius: BorderRadius.zero,
                 ),
               ),
-              onSubmitted: (v) => onCommit(double.tryParse(v) ?? 0),
-              onEditingComplete: () =>
-                  onCommit(double.tryParse(controller.text) ?? 0),
+              onSubmitted: (v) =>
+                  widget.onCommit(double.tryParse(v) ?? 0),
+              onEditingComplete: () => widget
+                  .onCommit(double.tryParse(widget.controller.text) ?? 0),
             ),
           ),
           _StepBtn(
             icon: Icons.add,
-            onPressed: () => _bump(step),
+            onPressed: () => _bump(widget.step),
           ),
         ],
       ),
